@@ -105,7 +105,36 @@ const Art = (() => {
     }),
   };
 
-  function avatar(name) { return (chars[name] || chars.nino)(); }
+  // ---------- Bild-Assets (Gemini-Illustrationen), Fallback: SVG ----------
+  const IMG = {};
+  const IMG_FILES = {
+    nino: 'fig_nino.png', mila: 'fig_mila.png', leyla: 'fig_leyla.png', brunner: 'fig_brunner.png', buehler: 'fig_buehler.png',
+    buehler_falsch: 'fig_buehler_bruder.png', gerber: 'fig_gerber.png', kummer: 'fig_kummer.png', schlatter: 'fig_schlatter.png', opa: 'fig_opa.png',
+    scene_marktplatz: 'scene_marktplatz.jpg', scene_baeckerei: 'scene_baeckerei.jpg', scene_see: 'scene_see.jpg', scene_schule: 'scene_schule.jpg', scene_gartenhaus: 'scene_gartenhaus.jpg',
+    karte: 'karte.jpg', enten: 'enten.png',
+    ...Object.fromEntries(['glocke','gipfeli','schraubenzieher','koffer','kaffee','schraube','katze','posaune','postauto','zahnrad','lupe','mappe','velo_a','velo_b','velo_c','velo_d'].map(n => ['ico_' + n, `ico_${n}.png`])),
+  };
+  // Icon als <img> (Bild) oder SVG-Fallback
+  function icon(name, fallbackSvg, cls = 'card-icon') {
+    if (IMG['ico_' + name]) return `<img class="${cls} icon-img" src="${IMG['ico_' + name]}" alt="" draggable="false">`;
+    return `<svg viewBox="-40 -40 80 80" class="${cls}">${fallbackSvg || ''}</svg>`;
+  }
+  // Sprite in einer Kulisse (SVG-Koordinaten 400x300): Bild oder SVG-Fallback
+  function sprite(name, x, y, h, fallbackSvg, extraAttr = '') {
+    const key = name === 'enten' ? 'enten' : 'ico_' + name;
+    if (IMG[key]) { const ratio = SPRITE_RATIO[name] || 1.3; const w = h * ratio; return `<image href="${IMG[key]}" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" ${extraAttr}/>`; }
+    return fallbackSvg || '';
+  }
+  const SPRITE_RATIO = { glocke: 1.08, gipfeli: 1.39, schraubenzieher: 2.02, koffer: 1.14, kaffee: 1.43, schraube: 0.89, katze: 0.91, posaune: 2.14, postauto: 2.4, zahnrad: 1.0, lupe: 1.04, mappe: 1.14, velo_a: 1.57, velo_b: 1.57, velo_c: 1.57, velo_d: 1.65, enten: 2.115 };
+  function probeImages(timeout = 2500) {
+    const all = Object.entries(IMG_FILES).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = () => { IMG[k] = src; res(); }; i.onerror = () => res(); i.src = src; }));
+    return Promise.race([Promise.all(all), new Promise(r => setTimeout(r, timeout))]);
+  }
+  function avatar(name) {
+    if (IMG[name]) return `<img class="avatar avatar-img" src="${IMG[name]}" alt="${NAMES[name] || name}" draggable="false">`;
+    return (chars[name] || chars.nino)();
+  }
+  function hasImg(k) { return !!IMG[k]; }
 
   const NAMES = { erz: 'Erzähler', nino: 'Nino', mila: 'Mila', leyla: 'Leyla', brunner: 'Onkel Brunner', buehler: 'Herr Bühler', buehler_falsch: 'Der Mann', gerber: 'Frau Gerber', kummer: 'Herr Kummer', schlatter: 'Herr Schlatter', opa: 'Opa Ernst' };
 
@@ -188,35 +217,43 @@ const Art = (() => {
 
   // ---------- Karte von Bärlingen ----------
   function karte(progress) {
-    const spots = [
+    const img = !!IMG.karte;
+    const spots = img ? [
+      { id: 0, x: 232, y: 300, label: 'Brunnen', icon: obj.gloeckchen(0, 0, 0.9) },
+      { id: 1, x: 120, y: 240, label: 'Bäckerei', icon: obj.gipfeli(0, 0, 1) },
+      { id: 2, x: 275, y: 130, label: 'See', icon: obj.ente(0, 0, 0.8) },
+      { id: 3, x: 110, y: 95, label: 'Schule', icon: obj.velo(0, 4, 0.5) },
+      { id: 4, x: 355, y: 170, label: 'Gartenhaus', icon: obj.zahnrad(0, 0, 0.7) },
+    ] : [
       { id: 0, x: 200, y: 330, label: 'Brunnen', icon: obj.gloeckchen(0, 0, 0.9) },
       { id: 1, x: 90, y: 230, label: 'Bäckerei', icon: obj.gipfeli(0, 0, 1) },
       { id: 2, x: 320, y: 200, label: 'See', icon: obj.ente(0, 0, 0.8) },
       { id: 3, x: 130, y: 110, label: 'Schule', icon: obj.velo(0, 4, 0.5) },
       { id: 4, x: 300, y: 60, label: 'Gartenhaus', icon: obj.zahnrad(0, 0, 0.7) },
     ];
-    const path = spots.map((s, i) => (i ? 'L' : 'M') + s.x + ' ' + s.y).join(' ');
+    const path = img ? '' : spots.map((s, i) => (i ? 'L' : 'M') + s.x + ' ' + s.y).join(' ');
+    const R = img ? 26 : 34;
     return `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" class="karte">
       <defs><linearGradient id="kg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CDEFD6"/><stop offset="1" stop-color="#B7E0C4"/></linearGradient></defs>
-      <rect width="400" height="400" rx="24" fill="url(#kg)"/>
+      ${IMG.karte ? `<clipPath id="kclip"><rect width="400" height="400" rx="24"/></clipPath><image href="${IMG.karte}" width="400" height="400" preserveAspectRatio="xMidYMid slice" clip-path="url(#kclip)"/>` : `<rect width="400" height="400" rx="24" fill="url(#kg)"/>
       <path d="M260 120 Q400 150 400 260 L400 400 L300 400 Q280 300 330 250 Q360 200 260 120 Z" fill="#7EC8E3"/>
-      <path d="M0 40 L80 0 L160 30 L120 60 L60 70 Z" fill="#9FC4D8"/>
-      <path d="${path}" stroke="#fff" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
-      <path d="${path}" stroke="#E9B44C" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 14"/>
+      <path d="M0 40 L80 0 L160 30 L120 60 L60 70 Z" fill="#9FC4D8"/>`}
+      ${path ? `<path d="${path}" stroke="#fff" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+      <path d="${path}" stroke="#E9B44C" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 14"/>` : ''}
       ${spots.map(s => {
         const st = progress[s.id] || 'locked';
         const cls = 'spot ' + st;
         const fill = st === 'done' ? '#6DA544' : st === 'open' ? '#F7941D' : '#B9B9B9';
         return `<g class="${cls}" data-case="${s.id}" transform="translate(${s.x} ${s.y})" role="button" tabindex="0" aria-label="Fall ${s.id + 1}: ${s.label}">
-          <circle r="34" fill="${fill}" stroke="#fff" stroke-width="5"/>
-          <g class="spot-icon" opacity="${st === 'locked' ? 0.5 : 1}">${s.icon}</g>
-          <circle cx="24" cy="-24" r="13" fill="#fff" stroke="${fill}" stroke-width="3"/><text x="24" y="-19" text-anchor="middle" font-size="15" font-weight="800" fill="${fill}" font-family="Fredoka, Nunito, sans-serif">${s.id + 1}</text>
-          ${st === 'done' ? obj.stern(-26, -26, 1.1) : ''}
-          ${st === 'locked' ? `<g transform="translate(0 40)"><rect x="-8" y="-6" width="16" height="12" rx="3" fill="#666"/><path d="M-5 -6 V-10 a5 5 0 0 1 10 0 V-6" stroke="#666" stroke-width="3" fill="none"/></g>` : ''}
+          <circle r="${R}" fill="${fill}" stroke="#fff" stroke-width="5"/>
+          <g class="spot-icon" opacity="${st === 'locked' ? 0.5 : 1}" transform="scale(${R / 34})">${s.icon}</g>
+          <circle cx="${R * 0.7}" cy="${-R * 0.7}" r="13" fill="#fff" stroke="${fill}" stroke-width="3"/><text x="${R * 0.7}" y="${-R * 0.7 + 5}" text-anchor="middle" font-size="15" font-weight="800" fill="${fill}" font-family="Fredoka, Nunito, sans-serif">${s.id + 1}</text>
+          ${st === 'done' ? obj.stern(-R * 0.75, -R * 0.75, 1.1) : ''}
+          ${st === 'locked' ? `<g transform="translate(0 ${R + 8})"><rect x="-8" y="-6" width="16" height="12" rx="3" fill="#666"/><path d="M-5 -6 V-10 a5 5 0 0 1 10 0 V-6" stroke="#666" stroke-width="3" fill="none"/></g>` : ''}
         </g>`;
       }).join('')}
     </svg>`;
   }
 
-  return { avatar, chars, obj, scenes, karte, NAMES };
+  return { avatar, chars, obj, scenes, karte, NAMES, probeImages, hasImg, IMG, icon, sprite };
 })();

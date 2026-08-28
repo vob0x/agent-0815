@@ -16,12 +16,12 @@ Interaktives Detektiv-Spiel zum Kinderbuch «Agent 0815». PWA, mobile-first, oh
 
 ## Technik
 
-- `index.html`, alle Dateien im Wurzelverzeichnis — reine Web-Standards
-- `audio.js` — Musik und Geräusche prozedural mit Web Audio (keine Audiodateien)
-- `speech.js` — Sprachausgabe über die Web Speech API (Stimme des Geräts, bevorzugt de-CH)
-- `art.js` — alle Figuren und Kulissen als Inline-SVG
-- `cases.js` — die Fälle als Daten (Dialoge, Rätsel, Lösungen)
-- `game.js` — Spiel-Engine (Karte, Schrittfolge, Rätseltypen, Belohnung, Elternbereich)
+- `index.html`, `css/style.css`, `js/*.js` — reine Web-Standards
+- `js/audio.js` — Musik und Geräusche prozedural mit Web Audio (keine Audiodateien)
+- `js/speech.js` — Sprachausgabe über die Web Speech API (Stimme des Geräts, bevorzugt de-CH)
+- `js/art.js` — alle Figuren und Kulissen als Inline-SVG
+- `js/cases.js` — die Fälle als Daten (Dialoge, Rätsel, Lösungen)
+- `js/game.js` — Spiel-Engine (Karte, Schrittfolge, Rätseltypen, Belohnung, Elternbereich)
 - `sw.js`, `manifest.webmanifest` — Offline-Fähigkeit und «Zum Home-Bildschirm»
 
 ## Lokal starten

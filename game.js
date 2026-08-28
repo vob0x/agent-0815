@@ -16,7 +16,7 @@
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
   // ---------- Sprechen (mit Musik-Ducking) ----------
-  async function say(text, who = 'erz') { A.duck(true); await S.speak(text, who); A.duck(false); }
+  async function say(text, who = 'erz') { A.duck(true); document.body.classList.add('speaking'); document.body.dataset.who = who; try { await S.speak(text, who); } finally { document.body.classList.remove('speaking'); A.duck(false); } }
   function sfx(name) { if (name && A.sfx[name]) A.sfx[name](); }
 
   // ---------- Idle-Hilfe ----------
@@ -24,12 +24,14 @@
   function clearIdle() { if (idleTimer) clearTimeout(idleTimer); idleTimer = null; }
 
   // ---------- Top-Bar ----------
-  function topbar({ title = '', back = null, showMap = false } = {}) {
-    $('#tb-title').textContent = title;
+  function topbar({ title = '', back = null, icon = '' } = {}) {
+    $('#tb-title').innerHTML = (icon ? `<span class="tb-ico">${icon}</span>` : '') + `<span class="lbl">${esc(title)}</span>`;
     const b = $('#tb-back'); b.style.visibility = back ? 'visible' : 'hidden'; b.onclick = back;
     $('#tb-sound').textContent = state.sound ? '🔊' : '🔇';
   }
-  $('#tb-sound').onclick = () => { state.sound = !state.sound; applySound(); save(); topbar({ title: $('#tb-title').textContent, back: $('#tb-back').onclick }); sfx('tap'); };
+  $('#tb-sound').onclick = () => { state.sound = !state.sound; applySound(); save(); $('#tb-sound').textContent = state.sound ? '🔊' : '🔇'; sfx('tap'); };
+  const CASE_ICONS = () => [Art.icon('glocke', Art.obj.gloeckchen(0, 0, 1.1), 'tb-svg'), Art.icon('gipfeli', Art.obj.gipfeli(0, 0, 1.2), 'tb-svg'), Art.hasImg('enten') ? `<img class="tb-svg icon-img" src="${Art.IMG.enten}" alt="">` : `<svg viewBox="-40 -40 80 80" class="tb-svg">${Art.obj.ente(0, 0, 1)}</svg>`, Art.icon('velo_a', Art.obj.velo(0, 4, 0.6), 'tb-svg'), Art.icon('zahnrad', Art.obj.zahnrad(0, 0, 0.9), 'tb-svg')];
+  function applyText() { document.body.classList.toggle('show-text', !!state.showText); }
   $('#tb-parent').onclick = () => parentGate();
   function applySound() { A.setMusic(state.sound && state.music !== false); A.setSfx(state.sound && state.sfx !== false); S.setEnabled(state.sound && state.voice !== false); }
 
@@ -45,7 +47,7 @@
           <p class="tagline">Die Fälle von Bärlingen</p>
         </div>
         <div class="hero">${Art.avatar('nino')}</div>
-        <button class="btn btn-primary btn-xl" id="btn-play"><span class="ico">▶</span> SPIELEN</button>
+        <button class="btn btn-primary btn-xl" id="btn-play"><span class="ico">▶</span><span class="lbl">SPIELEN</span></button>
         <p class="hint-small">Für Kinder ab dem Kindergarten. Alles wird vorgelesen.</p>
       </section>`;
     const hero = stage.querySelector('.hero .brille');
@@ -70,7 +72,7 @@
         <div class="map-wrap">${Art.karte(prog)}</div>
         <div class="map-foot">
           <div class="portrait small">${Art.avatar('nino')}</div>
-          <div class="bubble"><p id="map-text">${allDone ? 'Alle Fälle erledigt. Du bist ein echter Agent!' : 'Tipp auf einen Fall. Wir beginnen beim Brunnen.'}</p></div>
+          <div class="bubble"><p id="map-text">${allDone ? 'Alle Fälle erledigt. Du bist ein echter Agent!' : 'Tipp auf einen Fall. Wir beginnen beim Brunnen.'}</p><div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><button class="btn-replay" id="map-replay" aria-label="Nochmal anhören">🔊</button></div>
           <div class="stars">${CASES.map((c, i) => `<span class="star ${state.done.includes(i) ? 'on' : ''}">★</span>`).join('')}</div>
         </div>
       </section>`;
@@ -81,6 +83,8 @@
         sfx('pop'); startCase(id);
       });
     });
+    const mapText = allDone ? 'Alle fünf Fälle erledigt. Agent 0815 gratuliert. Du kannst jeden Fall nochmal spielen.' : prog.indexOf('open') === 0 ? 'Willkommen in Bärlingen. Ich bin Nino, Agent 0815. Tipp auf den Brunnen. Da beginnt der erste Fall.' : `Tipp auf die Zahl ${prog.indexOf('open') + 1}. Da wartet der nächste Fall.`;
+    $('#map-replay').onclick = () => { sfx('tap'); say(mapText, 'nino'); };
     if (greet) {
       const next = prog.indexOf('open');
       await say(allDone ? 'Alle fünf Fälle erledigt. Agent 0815 gratuliert. Du kannst jeden Fall nochmal spielen.' : next === 0 ? 'Willkommen in Bärlingen. Ich bin Nino, Agent 0815. Tipp auf den Brunnen. Da beginnt der erste Fall.' : `Tipp auf die Zahl ${next + 1}. Da wartet der nächste Fall.`, 'nino');
@@ -100,26 +104,49 @@
     const c = CASES[cur.caseId];
     const step = c.steps[cur.step];
     if (!step) { renderMap(); return; }
-    topbar({ title: `Fall ${c.id + 1}: ${c.title}`, back: () => { S.stop(); renderMap(); } });
+    topbar({ title: `Fall ${c.id + 1}: ${c.title}`, icon: `${CASE_ICONS()[c.id]}<b>${c.id + 1}</b>`, back: () => { S.stop(); renderMap(); } });
     const r = renderers[step.type];
     r ? r(step, c) : next();
   }
 
-  function sceneHTML(name, opts) { return Art.scenes[name] ? Art.scenes[name](opts || {}) : ''; }
+  // Anker für Sprites auf den Bild-Kulissen (Koordinaten im 400x300-Raster) — nach Sichtung der Bilder justieren
+  const ANCHORS = {
+    marktplatz: { bell: { x: 203, y: 108, h: 34 }, ducks: { x: 205, y: 222, h: 44 } },
+    see: { ducks: { x: 250, y: 232, h: 80 } },
+  };
+  function sceneHTML(name, opts) {
+    opts = opts || {};
+    if (Art.hasImg('scene_' + name)) {
+      const a = ANCHORS[name] || {};
+      let over = '';
+      if (opts.gloeckchen && a.bell) over += Art.sprite('glocke', a.bell.x, a.bell.y, a.bell.h, Art.obj.gloeckchen(a.bell.x, a.bell.y, 1));
+      if (a.ducks && ((name === 'marktplatz' && opts.enten !== false) || (name === 'see' && opts.enten))) over += `<g class="enten">${Art.sprite('enten', a.ducks.x, a.ducks.y, a.ducks.h)}</g>`;
+      over += opts.extra || '';
+      return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" class="scene"><image href="${Art.IMG['scene_' + name]}" width="400" height="300" preserveAspectRatio="xMidYMid slice"/>${over}</svg>`;
+    }
+    return Art.scenes[name] ? Art.scenes[name](opts) : '';
+  }
 
   function bubble(who, text, extraClass = '') {
     return `<div class="bubble-row ${extraClass}">
       <div class="portrait ${who}">${Art.avatar(who)}</div>
-      <div class="bubble"><div class="name">${Art.NAMES[who] || ''}</div><p>${esc(text)}</p><button class="btn-replay" aria-label="Nochmal anhören">🔊</button></div>
+      <div class="bubble"><div class="name">${Art.NAMES[who] || ''}</div><p>${esc(text)}</p><div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><button class="btn-replay" aria-label="Nochmal anhören">🔊</button></div>
     </div>`;
   }
   function wireReplay(who, text) { stage.querySelectorAll('.btn-replay').forEach(b => b.onclick = () => { sfx('tap'); say(text, who); }); }
   function nextButton(label = 'Weiter') {
-    return `<div class="actions"><button class="btn btn-primary btn-lg" id="btn-next">${label} <span class="ico">▶</span></button></div>`;
+    return `<div class="actions"><button class="btn btn-primary btn-lg" id="btn-next"><span class="lbl">${label}</span><span class="ico">▶</span></button></div>`;
   }
   function wireNext(fn) { const b = $('#btn-next'); if (b) b.onclick = () => { sfx('tap'); (fn || next)(); }; }
   function progressDots(found, total) { return `<div class="dots" aria-label="${found} von ${total}">${Array.from({ length: total }, (_, i) => `<span class="dot ${i < found ? 'on' : ''}">★</span>`).join('')}</div>`; }
   function svgPoint(svg, ev) { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+
+  function seqStatus(ico, text, round) {
+    const st = $('#seq-status'); if (!st) return;
+    st.querySelector('.seq-ico').textContent = ico; st.querySelector('.seq-ico').className = 'seq-ico ' + (ico === '👆' ? 'hand' : '');
+    st.querySelectorAll('.seq-dots b').forEach((d, i) => d.className = i < round ? 'on' : '');
+    $('#seq-text').textContent = text;
+  }
 
   const renderers = {
     // ---- Dialog ----
@@ -131,7 +158,11 @@
         ${nextButton()}
       </section>`;
       wireReplay(step.who, step.text); wireNext();
-      if (step.anim === 'brille') { const b = stage.querySelector('.portrait .brille'); if (b) { b.classList.add('rutscht'); } }
+      if (step.anim === 'brille') {
+        const b = stage.querySelector('.portrait .brille'); if (b) b.classList.add('rutscht');
+        const im = stage.querySelector('.portrait .avatar-img');
+        if (im && Art.hasImg('nino_brille') && step.who === 'nino') { const orig = im.src; setTimeout(() => { im.src = Art.IMG.nino_brille; sfx('bonk'); }, 900); setTimeout(() => { im.src = orig; }, 2600); }
+      }
       sfx(step.sfx);
       await say(step.text, step.who);
       const b = $('#btn-next'); if (b) b.classList.add('bounce');
@@ -155,7 +186,7 @@
           ${progressDots(0, step.hotspots.length)}
         </div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const svg = $('#find-svg');
@@ -205,14 +236,14 @@
       const layout = step.layout || 'suspects';
       let wrongs = 0, locked = false;
       const cards = step.options.map((o, i) => {
-        if (layout === 'sound') return `<div class="card sound" role="button" tabindex="0" data-i="${i}"><div class="speaker">🔊</div><div class="card-label">${esc(o.label)}</div><button class="btn btn-mini pick" data-i="${i}">Das ist er! ✓</button></div>`;
-        if (layout === 'icons') return `<button class="card icon" data-i="${i}"><svg viewBox="-40 -40 80 80" class="card-icon">${o.svg}</svg><div class="card-label">${esc(o.label)}</div></button>`;
-        return `<button class="card suspect" data-i="${i}"><div class="card-av">${Art.avatar(o.who)}</div><svg viewBox="-24 -24 48 48" class="card-item">${o.item}</svg><div class="card-label">${esc(o.label)}</div></button>`;
+        if (layout === 'sound') return `<div class="card sound" role="button" tabindex="0" data-i="${i}"><div class="speaker">🔊</div><div class="card-label">${esc(o.label)}</div><button class="btn btn-mini pick" data-i="${i}"><span class="lbl">Das ist er!</span> ✓</button></div>`;
+        if (layout === 'icons') return `<button class="card icon" data-i="${i}">${o.img ? Art.icon(o.img, o.svg) : `<svg viewBox="-40 -40 80 80" class="card-icon">${o.svg}</svg>`}<div class="card-label">${esc(o.label)}</div></button>`;
+        return `<button class="card suspect" data-i="${i}"><div class="card-av">${Art.avatar(o.who)}</div>${o.img ? Art.icon(o.img, o.item, 'card-item') : `<svg viewBox="-24 -24 48 48" class="card-item">${o.item}</svg>`}<div class="card-label">${esc(o.label)}</div></button>`;
       }).join('');
       stage.innerHTML = `<section class="screen case">
         ${bubble(step.question.who, step.question.text, 'compact')}
         <div class="cards n${step.options.length} ${layout}">${cards}</div>
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.question.who, step.question.text);
       const pick = async (i, el) => {
@@ -249,21 +280,24 @@
       let found = 0; const foundSet = new Set();
       stage.innerHTML = `<section class="screen case">
         <div class="diff-wrap">
-          <div class="diff-side"><div class="frame photo">${Art.avatar(step.left)}<div class="frame-label">Foto</div></div></div>
-          <div class="diff-side"><div class="frame live" id="diff-right">${Art.avatar(step.right).replace('<svg ', '<svg id="diff-svg" ')}<svg viewBox="0 0 120 130" class="diff-marks" id="diff-marks"></svg><div class="frame-label">Am Tresen</div></div></div>
+          <div class="diff-side"><div class="frame photo"><div class="frame-img">${Art.avatar(step.left)}</div><div class="frame-label">Foto</div></div></div>
+          <div class="diff-side"><div class="frame live" id="diff-right"><div class="frame-img">${Art.avatar(step.right)}<svg viewBox="${Art.hasImg(step.right) ? '0 0 100 234' : '0 0 120 130'}" class="diff-marks" id="diff-marks"></svg></div><div class="frame-label">Am Tresen</div></div></div>
         </div>
         ${progressDots(0, step.spots.length)}
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const marks = $('#diff-marks');
       $('#diff-right').addEventListener('click', async ev => {
         const p = svgPoint(marks, ev);
-        const hit = step.spots.find((h, i) => !foundSet.has(i) && Math.hypot(h.x - p.x, h.y - p.y) <= h.r + 6);
+        const imgMode = Art.hasImg(step.right);
+        const spots = imgMode ? step.spots.map(h => ({ ...h, ...(h.img || {}) })) : step.spots;
+        const cand = spots.map((h, i) => ({ h, i, d: Math.hypot(h.x - p.x, h.y - p.y) })).filter(c => !foundSet.has(c.i) && c.d <= c.h.r + 6).sort((a, b) => a.d - b.d)[0];
+        const hit = cand ? cand.h : null;
         clearIdle();
         if (!hit) { sfx('tap'); idleHint(); return; }
-        const i = step.spots.indexOf(hit); foundSet.add(i); found++;
+        const i = cand.i; foundSet.add(i); found++;
         marks.insertAdjacentHTML('beforeend', `<circle cx="${hit.x}" cy="${hit.y}" r="${hit.r + 3}" fill="none" stroke="#6DA544" stroke-width="3"/>`);
         stage.querySelector('.dots').outerHTML = progressDots(found, step.spots.length);
         sfx('found'); await say(hit.say, 'nino');
@@ -275,7 +309,8 @@
         } else idleHint();
       });
       const idleHint = () => idle(async () => {
-        const left = step.spots.find((h, i) => !foundSet.has(i)); if (!left) return;
+        const li = step.spots.findIndex((h, i) => !foundSet.has(i)); if (li < 0) return;
+        const left = Art.hasImg(step.right) ? { ...step.spots[li], ...(step.spots[li].img || {}) } : step.spots[li];
         marks.insertAdjacentHTML('beforeend', `<circle class="hintpulse" cx="${left.x}" cy="${left.y}" r="${left.r + 6}" fill="#F7941D" opacity=".4"/>`);
         await say('Schau mal dort, wo es leuchtet. Was ist anders als auf dem Foto?', 'leyla');
       });
@@ -286,24 +321,24 @@
     // ---- Geräusch-Reihenfolge ----
     async sequence(step) {
       let round = 0, input = [], busy = true, fails = 0;
-      const btns = step.sounds.map(s => `<button class="card icon snd" data-id="${s.id}"><svg viewBox="-40 -40 80 80" class="card-icon">${s.svg}</svg><div class="card-label">${esc(s.label)}</div></button>`).join('');
+      const btns = step.sounds.map(s => `<button class="card icon snd" data-id="${s.id}">${s.img === 'enten' ? (Art.hasImg('enten') ? `<img class="card-icon icon-img" src="${Art.IMG.enten}" alt="">` : `<svg viewBox="-40 -40 80 80" class="card-icon">${s.svg}</svg>`) : s.img ? Art.icon(s.img, s.svg) : `<svg viewBox="-40 -40 80 80" class="card-icon">${s.svg}</svg>`}<div class="card-label">${esc(s.label)}</div></button>`).join('');
       stage.innerHTML = `<section class="screen case">
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="seq-status" id="seq-status">Runde 1 von ${step.rounds.length}</div>
+        <div class="seq-status" id="seq-status"><span class="seq-ico">👂</span><span class="seq-dots">${step.rounds.map(() => '<b></b>').join('')}</span><span class="lbl" id="seq-text">Runde 1 von ${step.rounds.length}</span></div>
         <div class="cards n5 sounds">${btns}</div>
-        <div class="actions"><button class="btn btn-secondary btn-lg" id="btn-again">Nochmal hören <span class="ico">🔊</span></button><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-secondary btn-lg" id="btn-again"><span class="lbl">Nochmal hören</span><span class="ico">🔊</span></button><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const btn = id => stage.querySelector(`.snd[data-id="${id}"]`);
       const play = async (slow = false) => {
         busy = true; input = []; stage.querySelectorAll('.snd').forEach(b => b.classList.remove('on'));
-        $('#seq-status').textContent = `Runde ${round + 1} von ${step.rounds.length} — Hör zu …`;
+        seqStatus('👂', `Runde ${round + 1} von ${step.rounds.length} — Hör zu …`, round);
         await sleep(400);
         for (const id of step.rounds[round]) {
           const s = step.sounds.find(x => x.id === id); const b = btn(id);
           b.classList.add('on'); sfx(s.sfx); await sleep(slow ? 1300 : 900); b.classList.remove('on'); await sleep(250);
         }
-        $('#seq-status').textContent = `Jetzt du! Tipp die Geräusche in derselben Reihenfolge.`;
+        seqStatus('👆', 'Jetzt du! Tipp die Geräusche in derselben Reihenfolge.', round);
         busy = false; idleHint();
       };
       const idleHint = () => idle(async () => { await say('Tipp die Geräusche in derselben Reihenfolge an. Zuerst das erste Geräusch.', 'leyla'); });
@@ -322,7 +357,7 @@
         if (input.length === target.length) {
           busy = true; sfx('correct'); round++;
           if (round >= step.rounds.length) {
-            $('#seq-status').textContent = 'Alle Runden geschafft!';
+            seqStatus('⭐', 'Alle Runden geschafft!', step.rounds.length);
             $('#btn-again').style.display = 'none';
             stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
             $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
@@ -342,7 +377,7 @@
       stage.innerHTML = `<section class="screen case">
         <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive" id="order-svg">${inner(sceneHTML(step.scene, {}))}${spuren}<g id="order-marks"></g>${targets}<g id="nino-marker" transform="translate(${step.points[0].x} ${step.points[0].y - 30})"><circle r="14" fill="#6DA544" stroke="#fff" stroke-width="3"/><path d="M-9 -2 L-1 -2 M1 -2 L9 -2" stroke="#F2B233" stroke-width="2"/><rect x="-8" y="-3" width="7" height="5" rx="2" fill="#2B2B2B"/><rect x="1" y="-3" width="7" height="5" rx="2" fill="#2B2B2B"/></g></svg>${progressDots(0, step.points.length)}</div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const idleHint = () => idle(async () => { const t = stage.querySelector(`.target[data-i="${k}"] .tring`); if (t) t.classList.add('hintpulse'); await say(k === 0 ? 'Tipp auf die erste Spur beim Veloständer.' : 'Tipp auf die nächste Spur. Dort, wo es leuchtet.', 'leyla'); });
@@ -377,7 +412,7 @@
         </svg></div>
         <div class="bar"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const svg = $('#paper'); const holes = $('#ink-holes'); let down = false;
@@ -412,7 +447,7 @@
         <div class="map-wrap small">${Art.karte(CASES.map(() => 'done'))}</div>
         ${progressDots(0, step.order.length)}
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none">Weiter <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const names = ['Brunnen', 'Bäckerei', 'See', 'Schule', 'Gartenhaus'];
@@ -442,18 +477,19 @@
       state.unlocked = Math.max(state.unlocked, Math.min(CASES.length, c.id + 2)); save();
       stage.innerHTML = `<section class="screen reward">
         <div class="confetti" id="confetti"></div>
-        <div class="stamp-wrap"><div class="stamp" id="stamp">ERLEDIGT</div><div class="portrait big">${Art.avatar('nino')}</div></div>
+        <div class="stamp-wrap"><div class="stamp" id="stamp"><span class="stamp-check">✔</span><span class="lbl">ERLEDIGT</span></div><div class="portrait big">${Art.avatar('nino')}</div></div>
         <div class="reward-card">
-          <div class="reward-title">Fall ${c.id + 1} gelöst!</div>
+          <div class="reward-title"><span class="lbl">Fall ${c.id + 1} gelöst!</span></div>
           <div class="reward-stars">${'★'.repeat(3)}</div>
-          <div class="rule"><div class="rule-head">Regel fürs Agentenhandbuch</div><p>${esc(step.rule)}</p></div>
-          <div class="note">Ninos Note: <b>${esc(step.note)}</b> <span class="note-leyla">— Leyla: «Das war GUT, Nino.»</span></div>
+          <div class="rule"><div class="rule-icon">📓</div><div class="rule-head lbl">Regel fürs Agentenhandbuch</div><p class="lbl">${esc(step.rule)}</p><button class="btn-replay" id="rule-replay" aria-label="Regel nochmal anhören">🔊</button></div>
+          <div class="note lbl">Ninos Note: <b>${esc(step.note)}</b> <span class="note-leyla">— Leyla: «Das war GUT, Nino.»</span></div>
         </div>
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next">${step.final ? 'Zum Abspann' : 'Zur Karte'} <span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next"><span class="lbl">${step.final ? 'Zum Abspann' : 'Zur Karte'}</span><span class="ico">${step.final ? '★' : '🗺️'}</span></button></div>
       </section>`;
       const conf = $('#confetti'); for (let i = 0; i < 40; i++) { const s = document.createElement('i'); s.style.left = Math.random() * 100 + '%'; s.style.animationDelay = Math.random() * 1.5 + 's'; s.style.background = ['#F7941D', '#4FC3E8', '#6DA544', '#F25C7A', '#F7D046'][i % 5]; conf.appendChild(s); }
       await sleep(300); sfx('stamp'); $('#stamp').classList.add('in'); await sleep(500); sfx('fanfare'); sfx('confetti');
       wireNext(() => step.final ? renderEnd() : renderMap(true));
+      $('#rule-replay').onclick = () => { sfx('tap'); say(`Regel für mein Handbuch: ${step.rule}`, 'nino'); };
       await say(`Fall Nummer ${c.id + 1}. Erledigt. Note: ${step.note}`, 'nino');
       await say('Das war GUT, Nino.', 'leyla');
       await say(`Regel für mein Handbuch: ${step.rule}`, 'nino');
@@ -468,7 +504,7 @@
       <h2 class="logo small">ALLE FÄLLE<br><span>ERLEDIGT</span></h2>
       <div class="cast">${who.map(w => `<div class="cast-one"><div class="portrait">${Art.avatar(w)}</div><div class="cast-name">${Art.NAMES[w]}</div></div>`).join('')}</div>
       <p class="end-text">Agent 0815 sagt: Danke. Du bist jetzt auch im SGD. Ganz geheim. Alle wissen es.</p>
-      <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next">Zur Karte <span class="ico">▶</span></button></div>
+      <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next"><span class="lbl">Zur Karte</span><span class="ico">🗺️</span></button></div>
     </section>`;
     wireNext(() => renderMap());
     await say('Alle fünf Fälle erledigt. Du bist jetzt auch im S G D. Ganz geheim. Alle wissen es.', 'nino');
@@ -488,7 +524,7 @@
     const modal = document.createElement('div'); modal.className = 'modal';
     const tog = (id, label, on) => `<label class="tog"><span>${label}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><i></i></label>`;
     modal.innerHTML = `<div class="modal-card parent"><h3>Elternbereich</h3>
-      ${tog('p-music', 'Musik', state.music !== false)}${tog('p-sfx', 'Geräusche', state.sfx !== false)}${tog('p-voice', 'Sprachausgabe', state.voice !== false)}
+      ${tog('p-music', 'Musik', state.music !== false)}${tog('p-sfx', 'Geräusche', state.sfx !== false)}${tog('p-voice', 'Sprachausgabe', state.voice !== false)}${tog('p-text', 'Text anzeigen (für Leser)', !!state.showText)}
       <p class="small">Stimme: ${S.available() ? esc(S.voiceName) : 'Keine Sprachausgabe in diesem Browser'}</p>
       <p class="small">Fortschritt: ${state.done.length} von ${CASES.length} Fällen gelöst.</p>
       <div class="modal-actions">
@@ -500,6 +536,7 @@
     modal.querySelector('#p-music').onchange = e => { state.music = e.target.checked; applySound(); save(); };
     modal.querySelector('#p-sfx').onchange = e => { state.sfx = e.target.checked; applySound(); save(); };
     modal.querySelector('#p-voice').onchange = e => { state.voice = e.target.checked; applySound(); save(); };
+    modal.querySelector('#p-text').onchange = e => { state.showText = e.target.checked; applyText(); save(); };
     modal.querySelector('#p-close').onclick = () => modal.remove();
     modal.querySelector('#p-reset').onclick = () => { if (confirm('Wirklich den ganzen Fortschritt löschen?')) { state.done = []; state.unlocked = 1; save(); modal.remove(); renderMap(); } };
     const inst = modal.querySelector('#p-install'); if (inst) inst.onclick = async () => { deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; modal.remove(); };
@@ -510,5 +547,6 @@
   if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {})); }
   document.addEventListener('visibilitychange', () => { if (document.hidden) { S.stop(); } });
 
-  renderStart();
+  applyText();
+  Art.probeImages().then(() => { CASES = buildCases(); renderStart(); });
 })();

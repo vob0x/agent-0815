@@ -126,7 +126,9 @@ body {
 .frame.photo { background: #FFF8DC; border: 6px solid #C9A227; }
 .frame.live { cursor: pointer; }
 .frame svg.avatar { width: 100%; }
-.diff-marks { position: absolute; inset: 8px 8px auto 8px; width: calc(100% - 16px); pointer-events: none; }
+.frame-img { position: relative; }
+.frame-img .avatar-img { width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; display: block; }
+.diff-marks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .frame-label { text-align: center; font-family: var(--font-display); font-weight: 700; color: var(--ink-soft); font-size: .9rem; }
 
 /* ---------- Zettel ---------- */
@@ -176,3 +178,46 @@ body {
 
 @media (min-width: 700px) { .bubble p { font-size: 1.25rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001s !important; } }
+
+/* ---------- Textfreie UI (Text nur mit Eltern-Schalter) ---------- */
+.lbl, .bubble .name, .bubble p, .card-label, .frame-label, .cast-name, .end-text, .hint-small, .tagline, .seq-status .lbl { display: none; }
+body.show-text .lbl, body.show-text .bubble .name, body.show-text .bubble p, body.show-text .card-label, body.show-text .frame-label, body.show-text .cast-name, body.show-text .end-text, body.show-text .hint-small, body.show-text .tagline { display: revert; }
+body.show-text .btn .lbl { display: inline; }
+body.show-text .wave { display: none; }
+.btn .ico { font-size: 1.5em; line-height: 1; }
+.btn-xl .ico { font-size: 1.8em; }
+.bubble { min-height: 72px; display: flex; align-items: center; }
+.bubble .wave { display: flex; gap: 5px; align-items: center; height: 40px; }
+.bubble .wave i { width: 8px; height: 12px; border-radius: 4px; background: var(--blue); opacity: .35; transition: opacity .2s; }
+body.speaking .bubble .wave i { opacity: 1; animation: wave 0.9s ease-in-out infinite; }
+body.speaking .bubble .wave i:nth-child(2) { animation-delay: .12s; } body.speaking .bubble .wave i:nth-child(3) { animation-delay: .24s; }
+body.speaking .bubble .wave i:nth-child(4) { animation-delay: .36s; } body.speaking .bubble .wave i:nth-child(5) { animation-delay: .48s; }
+@keyframes wave { 0%, 100% { height: 10px; } 50% { height: 34px; } }
+body.speaking .bubble-row .portrait, body.speaking .map-foot .portrait { animation: talk 0.5s ease-in-out infinite; }
+@keyframes talk { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(-1.5deg); } }
+.btn-replay { width: 48px; height: 48px; font-size: 1.4rem; }
+.map-foot .bubble { padding-right: 60px; }
+.avatar-img { object-fit: contain; }
+.portrait .avatar-img { width: 100%; height: 100%; object-fit: cover; object-position: top; transform: scale(1.05); }
+.hero .avatar-img { width: 100%; height: auto; }
+.card-av .avatar-img { width: 100%; height: 78px; object-fit: cover; object-position: top; border-radius: 50%; background: #fff; }
+
+.tb-title { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.tb-ico { display: inline-flex; align-items: center; gap: 6px; }
+.tb-ico svg { width: 34px; height: 34px; } .tb-ico b { font-family: var(--font-display); font-size: 1.1rem; color: var(--orange-dark); }
+.seq-status { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.seq-ico { font-size: 2rem; } .seq-ico.hand { animation: bounce 1s infinite; }
+.seq-dots { display: flex; gap: 6px; } .seq-dots b { width: 14px; height: 14px; border-radius: 50%; background: #D8DEE4; display: inline-block; } .seq-dots b.on { background: var(--green); }
+.stamp-check { font-size: 2.2rem; line-height: 1; }
+.rule { display: flex; align-items: center; gap: 12px; justify-content: center; }
+.rule-icon { font-size: 2.2rem; }
+.rule .btn-replay { position: static; }
+.stars { gap: 6px; } .star { font-size: 1.9rem; }
+.logo-badge { display: none; }
+/* ---------- Bild-Icons ---------- */
+.icon-img { object-fit: contain; }
+.card-icon.icon-img { width: 96px; height: 80px; }
+.card-item.icon-img { width: 56px; height: 44px; padding: 4px; }
+.tb-svg { width: 40px; height: 34px; }
+.spot-icon image, .icon-img { pointer-events: none; }
+.cards.n3 .card .card-icon.icon-img { width: 100%; height: 76px; }
