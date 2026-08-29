@@ -455,7 +455,7 @@
       const idleHint = () => idle(async () => { const el = stage.querySelector(`.spot[data-case="${step.order[k]}"]`); el && el.classList.add('pulse'); await say(`Tipp auf ${k === 0 ? 'den Brunnen. Das ist die Nummer eins' : 'den Ort, der leuchtet'}.`, 'leyla'); });
       stage.querySelectorAll('.spot').forEach(el => el.addEventListener('click', async () => {
         const id = +el.dataset.case; clearIdle();
-        if (id !== step.order[k]) { sfx('wrong'); el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 500); await say(`Nein, das ist ${names[id] === 'Bäckerei' ? 'die' : names[id] === 'Schule' ? 'die' : 'der'} ${names[id]}. Schau auf den Zettel: Was kommt als Nummer ${k + 1}?`, 'leyla'); idleHint(); return; }
+        if (id !== step.order[k]) { sfx('wrong'); el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 500); await say(`Nein, das ist ${names[id] === 'Bäckerei' || names[id] === 'Schule' ? 'die' : names[id] === 'Gartenhaus' ? 'das' : 'der'} ${names[id]}. Schau auf den Zettel: Was kommt als Nummer ${k + 1}?`, 'leyla'); idleHint(); return; }
         k++; sfx('pop'); el.classList.remove('pulse'); el.classList.add('picked');
         el.insertAdjacentHTML('beforeend', `<circle r="34" fill="none" stroke="#F7941D" stroke-width="6"/><circle cx="-24" cy="-24" r="14" fill="#F7941D" stroke="#fff" stroke-width="3"/><text x="-24" y="-18" text-anchor="middle" font-size="16" font-weight="800" fill="#fff" font-family="Fredoka, Nunito, sans-serif">${k}</text>`);
         stage.querySelector('.dots').outerHTML = progressDots(k, step.order.length);
