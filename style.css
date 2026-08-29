@@ -314,3 +314,8 @@ body.speaking .bubble-row .portrait, body.speaking .map-foot .portrait { animati
 #cross.pop { animation: enterPop .5s cubic-bezier(.2,1.6,.4,1) both; transform-box: fill-box; transform-origin: center; }
 .paper-wrap.uv .paper { background: #1a1230; border-radius: 12px; }
 .paper-wrap.dig .paper, .paper-wrap.paint .paper { border-radius: 12px; }
+
+.scene.live .ducks-walk { animation: walkx 22s linear infinite alternate; }
+@keyframes walkx { from { transform: translateX(-90px); } to { transform: translateX(120px); } }
+.scene.live .ducks-waddle { animation: waddle .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: bottom center; }
+@keyframes waddle { from { transform: rotate(-4deg) translateY(0); } to { transform: rotate(4deg) translateY(-2px); } }

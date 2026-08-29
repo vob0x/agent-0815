@@ -20,7 +20,7 @@ const Scene0815 = (() => {
     gemeinde: { img: 'scene_gemeinde', floor: 292 },
     altersheim: { img: 'scene_altersheim', floor: 292 },
     strasse: { img: 'scene_strasse', floor: 292 },
-    karte: { img: 'karte', floor: 292 },
+    karte: { img: 'karte', floor: 392, square: true },
   };
 
   // ---------- kleine SVG-Fallbacks ----------
@@ -78,14 +78,16 @@ const Scene0815 = (() => {
   function render(name, opts = {}) {
     const d = DEFS[name];
     if (!d || !has(d.img)) return Art.scenes[name] ? Art.scenes[name](opts) : `<svg viewBox="0 0 400 300" class="scene"><rect width="400" height="300" fill="#DDE7EE"/><text x="200" y="150" text-anchor="middle" font-size="16" fill="#667">${name}</text></svg>`;
-    let L = img(d.img, 0, 0, 400, 300, 'preserveAspectRatio="xMidYMid slice"');
+    const H = d.square ? 400 : 300;
+    let L = img(d.img, 0, 0, 400, H, 'preserveAspectRatio="xMidYMid slice"');
     L += waterLayer(d.water);
     if (opts.bell !== false && d.bell && opts.bell) L += bellLayer(d.bell, opts.screws);
     if (d.ducks && opts.ducks !== false && (name !== 'see' || opts.ducks)) L += ducksLayer(d.ducks, d.water);
+    if (d.ducksWalk && opts.ducks) L += `<g transform="translate(150 286)"><g class="ducks-walk"><g class="ducks-waddle">${has('enten') ? img('enten', -36, -34, 72, 34) : svgs.ente(-20, -6, 0.8) + svgs.ente(8, -2, 0.75, true)}</g></g></g>`;
     (opts.actors || []).forEach((a, i) => { L += actorLayer({ i, ...a }); });
     L += opts.extra || '';
     L += fxLayer(opts.fx);
-    return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" class="scene live ${opts.fx ? 'fx-' + opts.fx : ''}" data-scene="${name}">${L}</svg>`;
+    return `<svg viewBox="0 0 400 ${H}" xmlns="http://www.w3.org/2000/svg" class="scene live ${opts.fx ? 'fx-' + opts.fx : ''}" data-scene="${name}">${L}</svg>`;
   }
   function inner(svg) { return svg.replace(/^\s*<svg[^>]*>/, '').replace(/<\/svg>\s*$/, ''); }
 
@@ -132,5 +134,6 @@ const Scene0815 = (() => {
   };
   async function cue(svg, c, sfx) { if (!svg || !c) return; const fn = cues[c.type]; if (fn) await fn(svg, c, sfx); }
 
-  return { render, inner, cue, DEFS, svgs };
+  function viewBox(name) { return DEFS[name] && DEFS[name].square ? '0 0 400 400' : '0 0 400 300'; }
+  return { render, inner, cue, DEFS, svgs, viewBox };
 })();

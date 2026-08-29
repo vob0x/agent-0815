@@ -192,7 +192,7 @@
       let k = 0; const total = step.targets.length; const doneSet = new Set();
       const targets = step.targets.map((t, i) => `<g class="target tap" data-i="${i}" transform="translate(${t.x} ${t.y})"><circle r="${t.r || 18}" fill="#fff" opacity=".001"/><circle class="tring" r="${(t.r || 18) - 2}" fill="none" stroke="#F7941D" stroke-width="3" stroke-dasharray="4 4"/>${t.svg || ''}</g>`).join('');
       stage.innerHTML = `<section class="screen case">
-        <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive live" id="taps-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}<g id="tap-marks"></g>${targets}</svg>${progressDots(0, total)}</div>
+        <div class="scene-wrap"><svg viewBox="${Scene0815.viewBox(cur.sceneName)}" class="scene interactive live" id="taps-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}<g id="tap-marks"></g>${targets}</svg>${progressDots(0, total)}</div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
       </section>`;
       wireReplay(step.intro.who, step.intro.text);

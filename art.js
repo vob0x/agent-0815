@@ -112,7 +112,7 @@ const Art = (() => {
     nino: './fig_nino.png', mila: './fig_mila.png', leyla: './fig_leyla.png', brunner: './fig_brunner.png', buehler: './fig_buehler.png',
     buehler_falsch: './fig_buehler_bruder.png', nino_brille: './fig_nino_brille.png', gerber: './fig_gerber.png', kummer: './fig_kummer.png', schlatter: './fig_schlatter.png', opa: './fig_opa.png',
     scene_marktplatz: './scene_marktplatz.jpg', scene_baeckerei: './scene_baeckerei.jpg', scene_see: './scene_see.jpg', scene_schule: './scene_schule.jpg', scene_gartenhaus: './scene_gartenhaus.jpg',
-    karte: './karte.jpg', enten: './enten.png',
+    karte: './karte_v2.jpg', enten: './enten.png',
     ...Object.fromEntries(['glocke','gipfeli','schraubenzieher','koffer','kaffee','schraube','katze','posaune','postauto','zahnrad','lupe','mappe','velo_a','velo_b','velo_c','velo_d'].map(n => ['ico_' + n, `./ico_${n}.png`])),
   };
   // Icon als <img> (Bild) oder SVG-Fallback
@@ -235,11 +235,11 @@ const Art = (() => {
   function karte(progress) {
     const img = !!IMG.karte;
     const spots = img ? [
-      { id: 0, x: 232, y: 300, label: 'Brunnen', icon: obj.gloeckchen(0, 0, 0.9) },
-      { id: 1, x: 120, y: 240, label: 'Bäckerei', icon: obj.gipfeli(0, 0, 1) },
-      { id: 2, x: 275, y: 130, label: 'See', icon: obj.ente(0, 0, 0.8) },
-      { id: 3, x: 110, y: 95, label: 'Schule', icon: obj.velo(0, 4, 0.5) },
-      { id: 4, x: 355, y: 170, label: 'Gartenhaus', icon: obj.zahnrad(0, 0, 0.7) },
+      { id: 0, x: 195, y: 330, label: 'Brunnen', img: 'silberglocke', icon: obj.gloeckchen(0, 0, 0.9) },
+      { id: 1, x: 258, y: 282, label: 'Markt', img: 'eckengucker', icon: obj.gipfeli(0, 0, 1) },
+      { id: 2, x: 68, y: 298, label: 'Hinterhof', img: 'lauschtrichter', icon: obj.katze(0, 0, 0.7) },
+      { id: 3, x: 150, y: 122, label: 'Werkstatt', img: 'generalschluessel', icon: obj.schluessel ? obj.schluessel(0, 0, 0.8) : obj.zahnrad(0, 0, 0.7) },
+      { id: 4, x: 288, y: 178, label: 'Gemeindehaus', img: 'nachtbrille', icon: obj.zahnrad(0, 0, 0.7) },
     ] : [
       { id: 0, x: 200, y: 330, label: 'Brunnen', icon: obj.gloeckchen(0, 0, 0.9) },
       { id: 1, x: 90, y: 230, label: 'Bäckerei', icon: obj.gipfeli(0, 0, 1) },
@@ -262,7 +262,7 @@ const Art = (() => {
         const fill = st === 'done' ? '#6DA544' : st === 'open' ? '#F7941D' : '#B9B9B9';
         return `<g class="${cls}" data-case="${s.id}" transform="translate(${s.x} ${s.y})" role="button" tabindex="0" aria-label="Fall ${s.id + 1}: ${s.label}">
           <circle r="${R}" fill="${fill}" stroke="#fff" stroke-width="5"/>
-          <g class="spot-icon" opacity="${st === 'locked' ? 0.5 : 1}" transform="scale(${R / 34})">${s.icon}</g>
+          <g class="spot-icon" opacity="${st === 'locked' ? 0.5 : 1}" transform="scale(${R / 34})">${s.img && IMG['ico_' + s.img] ? `<image href="${IMG['ico_' + s.img]}" x="-22" y="-22" width="44" height="44"/>` : s.icon}</g>
           <circle cx="${R * 0.7}" cy="${-R * 0.7}" r="13" fill="#fff" stroke="${fill}" stroke-width="3"/><text x="${R * 0.7}" y="${-R * 0.7 + 5}" text-anchor="middle" font-size="15" font-weight="800" fill="${fill}" font-family="Fredoka, Nunito, sans-serif">${s.id + 1}</text>
           ${st === 'done' ? obj.stern(-R * 0.75, -R * 0.75, 1.1) : ''}
           ${st === 'locked' ? `<g transform="translate(0 ${R + 8})"><rect x="-8" y="-6" width="16" height="12" rx="3" fill="#666"/><path d="M-5 -6 V-10 a5 5 0 0 1 10 0 V-6" stroke="#666" stroke-width="3" fill="none"/></g>` : ''}
