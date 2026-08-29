@@ -1,5 +1,5 @@
 /* Agent 0815 — Service Worker: Offline-Cache */
-const VERSION = 'agent0815-v7';
+const VERSION = 'agent0815-v8';
 const ASSETS = ['./', './index.html', './style.css', './audio.js', './speech.js', './art.js', './cases.js', './game.js', './scene.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-512-maskable.png'];
 
 self.addEventListener('install', e => {

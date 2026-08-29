@@ -733,7 +733,7 @@
         ${deferredInstall ? '<button class="btn btn-secondary" id="p-install">App installieren</button>' : ''}
         <button class="btn btn-secondary" id="p-reset">Fortschritt löschen</button>
         <button class="btn btn-primary" id="p-close">Schliessen</button></div>
-      <p class="small credit">Agent 0815 — Die Fälle von Bärlingen. Spiel zum Buch. Version MVP 0.1</p></div>`;
+      <p class="small credit">Agent 0815 — Die Fälle von Bärlingen. Spiel zum Buch. Vollversion 1.0</p></div>`;
     document.body.appendChild(modal);
     modal.querySelector('#p-music').onchange = e => { state.music = e.target.checked; applySound(); save(); };
     modal.querySelector('#p-sfx').onchange = e => { state.sfx = e.target.checked; applySound(); save(); };
