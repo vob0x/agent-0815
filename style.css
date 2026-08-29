@@ -221,3 +221,10 @@ body.speaking .bubble-row .portrait, body.speaking .map-foot .portrait { animati
 .tb-svg { width: 40px; height: 34px; }
 .spot-icon image, .icon-img { pointer-events: none; }
 .cards.n3 .card .card-icon.icon-img { width: 100%; height: 76px; }
+
+/* Automatischer Ablauf: Szene antippen = weiter */
+.screen.tappable { cursor: pointer; }
+.portrait .avatar-erz { object-fit: contain; transform: scale(.7); background: #fff; }
+/* Leben in der Kulisse: langsame Kamerafahrt während Dialogen */
+@keyframes kenburns { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-2%, -1.5%); } }
+.screen.tappable .scene-wrap .scene { animation: kenburns 14s ease-in-out infinite alternate; transform-origin: 55% 45%; }

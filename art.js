@@ -108,11 +108,11 @@ const Art = (() => {
   // ---------- Bild-Assets (Gemini-Illustrationen), Fallback: SVG ----------
   const IMG = {};
   const IMG_FILES = {
-    nino: 'fig_nino.png', mila: 'fig_mila.png', leyla: 'fig_leyla.png', brunner: 'fig_brunner.png', buehler: 'fig_buehler.png',
-    buehler_falsch: 'fig_buehler_bruder.png', gerber: 'fig_gerber.png', kummer: 'fig_kummer.png', schlatter: 'fig_schlatter.png', opa: 'fig_opa.png',
-    scene_marktplatz: 'scene_marktplatz.jpg', scene_baeckerei: 'scene_baeckerei.jpg', scene_see: 'scene_see.jpg', scene_schule: 'scene_schule.jpg', scene_gartenhaus: 'scene_gartenhaus.jpg',
-    karte: 'karte.jpg', enten: 'enten.png',
-    ...Object.fromEntries(['glocke','gipfeli','schraubenzieher','koffer','kaffee','schraube','katze','posaune','postauto','zahnrad','lupe','mappe','velo_a','velo_b','velo_c','velo_d'].map(n => ['ico_' + n, `ico_${n}.png`])),
+    nino: './fig_nino.png', mila: './fig_mila.png', leyla: './fig_leyla.png', brunner: './fig_brunner.png', buehler: './fig_buehler.png',
+    buehler_falsch: './fig_buehler_bruder.png', nino_brille: './fig_nino_brille.png', gerber: './fig_gerber.png', kummer: './fig_kummer.png', schlatter: './fig_schlatter.png', opa: './fig_opa.png',
+    scene_marktplatz: './scene_marktplatz.jpg', scene_baeckerei: './scene_baeckerei.jpg', scene_see: './scene_see.jpg', scene_schule: './scene_schule.jpg', scene_gartenhaus: './scene_gartenhaus.jpg',
+    karte: './karte.jpg', enten: './enten.png',
+    ...Object.fromEntries(['glocke','gipfeli','schraubenzieher','koffer','kaffee','schraube','katze','posaune','postauto','zahnrad','lupe','mappe','velo_a','velo_b','velo_c','velo_d'].map(n => ['ico_' + n, `./ico_${n}.png`])),
   };
   // Icon als <img> (Bild) oder SVG-Fallback
   function icon(name, fallbackSvg, cls = 'card-icon') {
@@ -126,12 +126,18 @@ const Art = (() => {
     return fallbackSvg || '';
   }
   const SPRITE_RATIO = { glocke: 1.08, gipfeli: 1.39, schraubenzieher: 2.02, koffer: 1.14, kaffee: 1.43, schraube: 0.89, katze: 0.91, posaune: 2.14, postauto: 2.4, zahnrad: 1.0, lupe: 1.04, mappe: 1.14, velo_a: 1.57, velo_b: 1.57, velo_c: 1.57, velo_d: 1.65, enten: 2.115 };
-  function probeImages(timeout = 2500) {
-    const all = Object.entries(IMG_FILES).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = () => { IMG[k] = src; res(); }; i.onerror = () => res(); i.src = src; }));
+  // Figuren/Icons werden mit der App ausgeliefert: sofort als vorhanden registrieren (kein Rennen gegen
+  // einen Lade-Timeout, das auf langsamen Netzen die alten SVG-Figuren zeigte). Vorladen mit grosszügigem Timeout.
+  Object.assign(IMG, IMG_FILES);
+  function probeImages(timeout = 8000) {
+    const all = Object.entries(IMG_FILES).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = res; i.onerror = () => { delete IMG[k]; res(); }; i.src = src; }));
     return Promise.race([Promise.all(all), new Promise(r => setTimeout(r, timeout))]);
   }
+  // Bei Ladefehler eines Figurenbilds: SVG-Fallback einsetzen
+  function imgFail(el) { const n = el.dataset.fig; delete IMG[n]; const svg = (chars[n] || chars.nino)(); el.insertAdjacentHTML('afterend', svg); el.remove(); }
   function avatar(name) {
-    if (IMG[name]) return `<img class="avatar avatar-img" src="${IMG[name]}" alt="${NAMES[name] || name}" draggable="false">`;
+    if (name === 'erz') return `<img class="avatar avatar-img avatar-erz" src="${IMG.ico_lupe || ''}" alt="Erzähler" draggable="false">`;
+    if (IMG[name]) return `<img class="avatar avatar-img" data-fig="${name}" src="${IMG[name]}" alt="${NAMES[name] || name}" draggable="false" onerror="Art.imgFail(this)">`;
     return (chars[name] || chars.nino)();
   }
   function hasImg(k) { return !!IMG[k]; }
@@ -255,5 +261,5 @@ const Art = (() => {
     </svg>`;
   }
 
-  return { avatar, chars, obj, scenes, karte, NAMES, probeImages, hasImg, IMG, icon, sprite };
+  return { avatar, chars, obj, scenes, karte, NAMES, probeImages, hasImg, IMG, icon, sprite, imgFail };
 })();

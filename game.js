@@ -7,6 +7,7 @@
   let state = load();
   let idleTimer = null, deferredInstall = null;
   let cur = { caseId: null, step: 0 };
+  window.__cur = () => ({ c: cur.caseId, s: cur.step, m: !!stage.querySelector('.map-wrap') });
 
   function load() { try { return Object.assign({ done: [], unlocked: 1, sound: true }, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch (e) { return { done: [], unlocked: 1, sound: true }; } }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
@@ -62,6 +63,7 @@
   // ---------- Karte ----------
   function progressMap() { return CASES.map((c, i) => state.done.includes(i) ? 'done' : i < state.unlocked ? 'open' : 'locked'); }
   async function renderMap(greet = false) {
+    stepToken++;
     clearIdle(); S.stop();
     topbar({ title: 'Bärlingen', back: null });
     A.music('map');
@@ -99,8 +101,17 @@
     renderStep();
   }
   function next() { cur.step++; renderStep(); }
+  // Automatisches Weitergehen: nach dem letzten Satz eines Schritts, sofern der Schritt noch aktuell ist
+  let stepToken = 0;
+  function autoNext(fn, delay = 800) { const t = stepToken; setTimeout(() => { if (t === stepToken) (fn || next)(); }, delay); }
+  // Antippen der Szene/Sprechblase (nicht des Lautsprechers) = sofort weiter
+  function tapToSkip(fn) {
+    const sec = stage.querySelector('.screen'); if (!sec) return;
+    sec.classList.add('tappable');
+    sec.addEventListener('click', ev => { if (ev.target.closest('.btn-replay, button, .card, .spot')) return; sfx('tap'); S.stop(); (fn || next)(); });
+  }
   function renderStep() {
-    clearIdle(); S.stop();
+    stepToken++; clearIdle(); S.stop();
     const c = CASES[cur.caseId];
     const step = c.steps[cur.step];
     if (!step) { renderMap(); return; }
@@ -134,10 +145,6 @@
     </div>`;
   }
   function wireReplay(who, text) { stage.querySelectorAll('.btn-replay').forEach(b => b.onclick = () => { sfx('tap'); say(text, who); }); }
-  function nextButton(label = 'Weiter') {
-    return `<div class="actions"><button class="btn btn-primary btn-lg" id="btn-next"><span class="lbl">${label}</span><span class="ico">▶</span></button></div>`;
-  }
-  function wireNext(fn) { const b = $('#btn-next'); if (b) b.onclick = () => { sfx('tap'); (fn || next)(); }; }
   function progressDots(found, total) { return `<div class="dots" aria-label="${found} von ${total}">${Array.from({ length: total }, (_, i) => `<span class="dot ${i < found ? 'on' : ''}">★</span>`).join('')}</div>`; }
   function svgPoint(svg, ev) { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
 
@@ -155,9 +162,8 @@
       stage.innerHTML = `<section class="screen case">
         <div class="scene-wrap">${sceneHTML(cur.sceneName, cur.sceneOpts)}</div>
         ${bubble(step.who, step.text)}
-        ${nextButton()}
       </section>`;
-      wireReplay(step.who, step.text); wireNext();
+      wireReplay(step.who, step.text); tapToSkip();
       if (step.anim === 'brille') {
         const b = stage.querySelector('.portrait .brille'); if (b) b.classList.add('rutscht');
         const im = stage.querySelector('.portrait .avatar-img');
@@ -165,8 +171,7 @@
       }
       sfx(step.sfx);
       await say(step.text, step.who);
-      const b = $('#btn-next'); if (b) b.classList.add('bounce');
-      idle(() => { say('Tipp auf Weiter.', 'leyla'); }, 20000);
+      autoNext(null, step.anim ? 2000 : 900);
     },
 
     // ---- Spuren finden ----
@@ -186,7 +191,7 @@
           ${progressDots(0, step.hotspots.length)}
         </div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const svg = $('#find-svg');
@@ -218,8 +223,7 @@
           sfx('correct');
           stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact');
           wireReplay(step.done.who, step.done.text);
-          $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
-          await say(step.done.text, step.done.who);
+          await say(step.done.text, step.done.who); autoNext();
         } else idleHint();
       });
       const idleHint = () => idle(async () => {
@@ -243,7 +247,7 @@
       stage.innerHTML = `<section class="screen case">
         ${bubble(step.question.who, step.question.text, 'compact')}
         <div class="cards n${step.options.length} ${layout}">${cards}</div>
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        
       </section>`;
       wireReplay(step.question.who, step.question.text);
       const pick = async (i, el) => {
@@ -251,8 +255,7 @@
         if (o.correct) {
           locked = true; el.classList.add('right'); sfx('correct');
           stage.querySelectorAll('.card').forEach(c => { if (c !== el) c.classList.add('dim'); });
-          await say(o.say, 'nino');
-          $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
+          await say(o.say, 'nino'); autoNext();
         } else {
           wrongs++; el.classList.add('shake', 'dim'); sfx('wrong'); setTimeout(() => el.classList.remove('shake'), 500);
           await say(o.say, 'leyla');
@@ -285,7 +288,7 @@
         </div>
         ${progressDots(0, step.spots.length)}
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const marks = $('#diff-marks');
@@ -304,8 +307,7 @@
         if (found === step.spots.length) {
           sfx('correct');
           stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
-          $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
-          await say(step.done.text, step.done.who);
+          await say(step.done.text, step.done.who); autoNext();
         } else idleHint();
       });
       const idleHint = () => idle(async () => {
@@ -326,7 +328,7 @@
         ${bubble(step.intro.who, step.intro.text, 'compact')}
         <div class="seq-status" id="seq-status"><span class="seq-ico">👂</span><span class="seq-dots">${step.rounds.map(() => '<b></b>').join('')}</span><span class="lbl" id="seq-text">Runde 1 von ${step.rounds.length}</span></div>
         <div class="cards n5 sounds">${btns}</div>
-        <div class="actions"><button class="btn btn-secondary btn-lg" id="btn-again"><span class="lbl">Nochmal hören</span><span class="ico">🔊</span></button><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        <div class="actions"><button class="btn btn-secondary btn-lg" id="btn-again"><span class="lbl">Nochmal hören</span><span class="ico">🔊</span></button></div>
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const btn = id => stage.querySelector(`.snd[data-id="${id}"]`);
@@ -360,8 +362,7 @@
             seqStatus('⭐', 'Alle Runden geschafft!', step.rounds.length);
             $('#btn-again').style.display = 'none';
             stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
-            $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
-            await say(step.done.text, step.done.who);
+              await say(step.done.text, step.done.who); autoNext();
           } else { await say('Super! Nächste Runde.', 'nino'); play(); }
         } else idleHint();
       }));
@@ -377,7 +378,7 @@
       stage.innerHTML = `<section class="screen case">
         <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive" id="order-svg">${inner(sceneHTML(step.scene, {}))}${spuren}<g id="order-marks"></g>${targets}<g id="nino-marker" transform="translate(${step.points[0].x} ${step.points[0].y - 30})"><circle r="14" fill="#6DA544" stroke="#fff" stroke-width="3"/><path d="M-9 -2 L-1 -2 M1 -2 L9 -2" stroke="#F2B233" stroke-width="2"/><rect x="-8" y="-3" width="7" height="5" rx="2" fill="#2B2B2B"/><rect x="1" y="-3" width="7" height="5" rx="2" fill="#2B2B2B"/></g></svg>${progressDots(0, step.points.length)}</div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const idleHint = () => idle(async () => { const t = stage.querySelector(`.target[data-i="${k}"] .tring`); if (t) t.classList.add('hintpulse'); await say(k === 0 ? 'Tipp auf die erste Spur beim Veloständer.' : 'Tipp auf die nächste Spur. Dort, wo es leuchtet.', 'leyla'); });
@@ -392,8 +393,7 @@
         if (k === step.points.length) {
           sfx('correct');
           stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
-          $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
-          await say(step.done.text, step.done.who);
+          await say(step.done.text, step.done.who); autoNext();
         } else idleHint();
       }));
       await say(step.intro.text, step.intro.who);
@@ -412,7 +412,7 @@
         </svg></div>
         <div class="bar"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const svg = $('#paper'); const holes = $('#ink-holes'); let down = false;
@@ -429,8 +429,7 @@
         done = true; clearIdle(); holes.insertAdjacentHTML('beforeend', `<rect width="260" height="260" fill="#fff"/>`); $('#bar-fill').style.width = '100%';
         sfx('correct');
         stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
-        $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
-        await say(step.done.text, step.done.who);
+        await say(step.done.text, step.done.who); autoNext();
       };
       svg.addEventListener('pointerdown', ev => { down = true; svg.setPointerCapture(ev.pointerId); rub(ev); clearIdle(); });
       svg.addEventListener('pointermove', ev => { if (down) rub(ev); });
@@ -447,7 +446,7 @@
         <div class="map-wrap small">${Art.karte(CASES.map(() => 'done'))}</div>
         ${progressDots(0, step.order.length)}
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next" style="display:none"><span class="lbl">Weiter</span><span class="ico">▶</span></button></div>
+        
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
       const names = ['Brunnen', 'Bäckerei', 'See', 'Schule', 'Gartenhaus'];
@@ -462,8 +461,7 @@
         if (k === step.order.length) {
           sfx('correct');
           stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
-          $('#btn-next').style.display = ''; $('#btn-next').classList.add('bounce'); wireNext();
-          await say(step.done.text, step.done.who);
+          await say(step.done.text, step.done.who); autoNext();
         } else { await say(names[id] + '. Richtig!', 'nino'); idleHint(); }
       }));
       await say(step.intro.text, step.intro.who);
@@ -484,30 +482,30 @@
           <div class="rule"><div class="rule-icon">📓</div><div class="rule-head lbl">Regel fürs Agentenhandbuch</div><p class="lbl">${esc(step.rule)}</p><button class="btn-replay" id="rule-replay" aria-label="Regel nochmal anhören">🔊</button></div>
           <div class="note lbl">Ninos Note: <b>${esc(step.note)}</b> <span class="note-leyla">— Leyla: «Das war GUT, Nino.»</span></div>
         </div>
-        <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next"><span class="lbl">${step.final ? 'Zum Abspann' : 'Zur Karte'}</span><span class="ico">${step.final ? '★' : '🗺️'}</span></button></div>
       </section>`;
       const conf = $('#confetti'); for (let i = 0; i < 40; i++) { const s = document.createElement('i'); s.style.left = Math.random() * 100 + '%'; s.style.animationDelay = Math.random() * 1.5 + 's'; s.style.background = ['#F7941D', '#4FC3E8', '#6DA544', '#F25C7A', '#F7D046'][i % 5]; conf.appendChild(s); }
       await sleep(300); sfx('stamp'); $('#stamp').classList.add('in'); await sleep(500); sfx('fanfare'); sfx('confetti');
-      wireNext(() => step.final ? renderEnd() : renderMap(true));
+      const go = () => step.final ? renderEnd() : renderMap(true);
+      tapToSkip(go);
       $('#rule-replay').onclick = () => { sfx('tap'); say(`Regel für mein Handbuch: ${step.rule}`, 'nino'); };
       await say(`Fall Nummer ${c.id + 1}. Erledigt. Note: ${step.note}`, 'nino');
       await say('Das war GUT, Nino.', 'leyla');
       await say(`Regel für mein Handbuch: ${step.rule}`, 'nino');
-      $('#btn-next').classList.add('bounce');
+      autoNext(go, 1500);
     },
   };
 
   async function renderEnd() {
-    topbar({ title: 'Abspann', back: () => renderMap() }); A.music('win');
+    stepToken++; topbar({ title: 'Abspann', back: () => renderMap() }); A.music('win');
     const who = ['nino', 'leyla', 'mila', 'brunner', 'buehler', 'gerber', 'kummer'];
     stage.innerHTML = `<section class="screen end">
       <h2 class="logo small">ALLE FÄLLE<br><span>ERLEDIGT</span></h2>
       <div class="cast">${who.map(w => `<div class="cast-one"><div class="portrait">${Art.avatar(w)}</div><div class="cast-name">${Art.NAMES[w]}</div></div>`).join('')}</div>
       <p class="end-text">Agent 0815 sagt: Danke. Du bist jetzt auch im SGD. Ganz geheim. Alle wissen es.</p>
-      <div class="actions"><button class="btn btn-primary btn-lg" id="btn-next"><span class="lbl">Zur Karte</span><span class="ico">🗺️</span></button></div>
     </section>`;
-    wireNext(() => renderMap());
+    tapToSkip(() => renderMap());
     await say('Alle fünf Fälle erledigt. Du bist jetzt auch im S G D. Ganz geheim. Alle wissen es.', 'nino');
+    autoNext(() => renderMap(), 2500);
   }
 
   // ---------- Elternbereich ----------
