@@ -228,3 +228,89 @@ body.speaking .bubble-row .portrait, body.speaking .map-foot .portrait { animati
 /* Leben in der Kulisse: langsame Kamerafahrt während Dialogen */
 @keyframes kenburns { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-2%, -1.5%); } }
 .screen.tappable .scene-wrap .scene { animation: kenburns 14s ease-in-out infinite alternate; transform-origin: 55% 45%; }
+
+/* ===== Lebende Szenen ===== */
+.scene.live .ducks-drift { animation: drift 16s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translate(var(--x0, -40px), 0); } to { transform: translate(var(--x1, 40px), 0); } }
+.scene.live .ducks-bob { animation: bob 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes bob { 0%, 100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-2px) rotate(1.5deg); } }
+.scene.live .ducks-bob.startled { animation: startled .45s ease-out 2; }
+@keyframes startled { 0% { transform: translateY(0); } 40% { transform: translateY(-10px) rotate(-6deg); } 100% { transform: translateY(0); } }
+.scene.live .wake { animation: wake 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes wake { 0%, 100% { transform: scaleX(1); opacity: .5; } 50% { transform: scaleX(1.08); opacity: .8; } }
+.scene.live .ripple { animation: ripple 3.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.scene.live .ripple.r1 { animation-delay: 1.6s; }
+@keyframes ripple { 0% { transform: scale(.4); opacity: .8; } 100% { transform: scale(2.6); opacity: 0; } }
+.scene.live .ripple.r2 { animation-delay: .8s; }
+.scene.live .glint { animation: glint 2.8s ease-in-out infinite; }
+@keyframes glint { 0%, 100% { opacity: .2; } 50% { opacity: .85; } }
+.scene.live .glint-star { animation: twinkle 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes twinkle { 0%, 100% { transform: scale(.3) rotate(0); opacity: 0; } 50% { transform: scale(1) rotate(45deg); opacity: 1; } }
+.scene.live .bell { animation: bellsway 5s ease-in-out infinite; transform-box: fill-box; transform-origin: top center; }
+@keyframes bellsway { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(2deg); } 75% { transform: rotate(-2deg); } }
+.scene.live .bell-group.bell-out { animation: bellout .8s ease-in forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes bellout { to { transform: translateY(-30px) scale(.2); opacity: 0; } }
+.scene.live .bell-group.bell-in { animation: bellin .8s cubic-bezier(.3,1.5,.6,1) forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes bellin { from { transform: translateY(-30px) scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+.scene.live .actor { transform-box: fill-box; transform-origin: bottom center; animation: breathe 3.4s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.015); } }
+.scene.live .actor.enter-left { animation: enterL .7s cubic-bezier(.2,.9,.3,1.1) both, breathe 3.4s ease-in-out .7s infinite; }
+.scene.live .actor.enter-right { animation: enterR .7s cubic-bezier(.2,.9,.3,1.1) both, breathe 3.4s ease-in-out .7s infinite; }
+.scene.live .actor.enter-pop { animation: enterPop .5s cubic-bezier(.2,1.6,.4,1) both, breathe 3.4s ease-in-out .5s infinite; }
+@keyframes enterL { from { transform: translateX(-160px); } to { transform: none; } }
+@keyframes enterR { from { transform: translateX(160px); } to { transform: none; } }
+@keyframes enterPop { from { transform: scale(0); } to { transform: none; } }
+.scene.live .actor.shake { animation: shake .5s; }
+.scene.live .actor.talk { animation: talk .5s ease-in-out infinite; }
+.scene.live .rain line { animation: rain 1s linear infinite; animation-delay: var(--d, 0s); }
+@keyframes rain { to { transform: translateY(330px); } }
+.scene.live .stars .star { animation: glint 3s ease-in-out infinite; } .scene.live .stars .s1 { animation-delay: 1s; } .scene.live .stars .s2 { animation-delay: 2s; }
+.scene.live .fx-candle { animation: candle 1.6s ease-in-out infinite; }
+@keyframes candle { 0%, 100% { opacity: 1; } 30% { opacity: .85; } 60% { opacity: .95; } }
+.cue-splash .splash-ring { animation: splashring 1s ease-out both; animation-delay: var(--d, 0s); transform-box: fill-box; transform-origin: center; }
+@keyframes splashring { from { transform: scale(.5); opacity: 1; } to { transform: scale(4); opacity: 0; } }
+.cue-splash .drop { animation: drop .7s ease-out both; animation-delay: var(--d, 0s); }
+@keyframes drop { 0% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-22px); } 100% { transform: translateY(6px); opacity: 0; } }
+.cue-brille .inner.landed { transform-box: fill-box; transform-origin: center; animation: landed .3s ease-out; }
+@keyframes landed { 0% { transform: scale(1.3); } 100% { transform: scale(1); } }
+.cue-pigeons .pigeon { animation: fly 1.3s ease-in both; animation-delay: var(--d, 0s); }
+@keyframes fly { to { transform: translate(120px, -140px) scale(.6); opacity: 0; } }
+/* Kamerafahrt gilt für alle lebenden Szenen im Dialog */
+.screen.tappable .scene-wrap .scene.live { animation: kenburns 16s ease-in-out infinite alternate; }
+
+/* ===== Heft + Zettel ===== */
+.heft { width: min(92%, 420px); margin: 8px auto 0; background: #FFFDF5; border-radius: 14px; box-shadow: var(--shadow); padding: 14px 16px; position: relative; background-image: repeating-linear-gradient(transparent 0 27px, #DCE8F5 27px 28px); }
+.heft-head { display: flex; align-items: center; gap: 12px; }
+.heft-num { font: 800 34px/1 Fredoka, Nunito, sans-serif; color: var(--orange, #F7941D); }
+.heft .stamp { margin-left: auto; position: static; transform: rotate(-12deg) scale(0); }
+.heft .stamp.in { animation: stampin .4s cubic-bezier(.2,1.6,.4,1) forwards; }
+@keyframes stampin { to { transform: rotate(-12deg) scale(1); opacity: 1; } }
+.heft-lines { margin-top: 10px; min-height: 28px; font: 600 16px/28px Nunito, sans-serif; color: #5A3A22; display: flex; flex-direction: column; }
+.heft .reward-stars { text-align: center; font-size: 30px; color: #F7D046; margin-top: 4px; }
+.zettel { width: min(86%, 380px); margin: 16px auto 0; background: #FFF8DC; border: 2px solid #E8D8B0; border-radius: 6px; padding: 12px 14px; box-shadow: var(--shadow); transform: translateY(40px) rotate(-3deg); opacity: 0; transition: all .6s cubic-bezier(.2,1.2,.4,1); position: relative; }
+.zettel.in { transform: rotate(-2deg); opacity: 1; }
+.zettel-from { display: flex; align-items: center; gap: 12px; }
+.zettel .zettel-icon { width: 56px; height: 56px; object-fit: contain; }
+.zettel p { margin: 8px 0 0; font: 600 15px/1.35 Nunito, sans-serif; color: #5A3A22; font-style: italic; }
+.zettel .btn-replay { position: absolute; right: 8px; bottom: 8px; }
+
+.target.tap .spin { transform-box: fill-box; transform-origin: center; }
+.target.tap .spin.spun { animation: spinscrew .6s ease-out forwards; }
+@keyframes spinscrew { to { transform: rotate(540deg); } }
+.target.tap.done .tring { opacity: .5; }
+
+/* ===== Neue Mechaniken ===== */
+.hold-btn { transform-box: fill-box; transform-origin: center; cursor: pointer; }
+.hold-btn.holding .hold-bg { fill: #6DA544; }
+.hold-btn.done .hold-bg { fill: #6DA544; }
+.noise-icons .noise { animation: noisejump .6s ease-in-out infinite alternate; animation-delay: var(--d, 0s); transform-box: fill-box; transform-origin: center; }
+@keyframes noisejump { from { transform: scale(1) rotate(-6deg); } to { transform: scale(1.25) rotate(6deg); } }
+.scene.quiet .noise-icons { transition: opacity 1.2s; opacity: 0; }
+.vol-bar { height: 10px; margin: 6px 14px 0; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.15); }
+#vol-fill { height: 100%; width: 0; background: #F7941D; transition: width .15s; }
+.template { cursor: grab; transform-box: fill-box; }
+.template.drag { opacity: .85; }
+.template.snapped { filter: drop-shadow(0 0 6px #6DA544); }
+#cross.pop { animation: enterPop .5s cubic-bezier(.2,1.6,.4,1) both; transform-box: fill-box; transform-origin: center; }
+.paper-wrap.uv .paper { background: #1a1230; border-radius: 12px; }
+.paper-wrap.dig .paper, .paper-wrap.paint .paper { border-radius: 12px; }

@@ -34,6 +34,7 @@ const Art = (() => {
   }
 
   const chars = {
+    generic: () => `<svg viewBox="-40 -40 80 80" class="avatar"><circle r="38" fill="#DDE7EE"/><circle cy="-8" r="14" fill="#9AA0A8"/><path d="M-26 34 Q0 2 26 34 Z" fill="#9AA0A8"/></svg>`,
     nino: () => head({
       skin: SKIN.b,
       hair: `<path d="M25 54 Q24 18 60 18 Q96 18 95 54 Q84 36 66 40 Q58 30 50 40 Q38 36 25 54 Z" fill="#5A3A22"/><path d="M44 26 L40 14 L52 24 Z" fill="#5A3A22"/><path d="M68 24 L74 12 L78 26 Z" fill="#5A3A22"/>`,
@@ -106,7 +107,7 @@ const Art = (() => {
   };
 
   // ---------- Bild-Assets (Gemini-Illustrationen), Fallback: SVG ----------
-  const IMG = {};
+  const IMG = {}; const RATIO = {};
   const IMG_FILES = {
     nino: './fig_nino.png', mila: './fig_mila.png', leyla: './fig_leyla.png', brunner: './fig_brunner.png', buehler: './fig_buehler.png',
     buehler_falsch: './fig_buehler_bruder.png', nino_brille: './fig_nino_brille.png', gerber: './fig_gerber.png', kummer: './fig_kummer.png', schlatter: './fig_schlatter.png', opa: './fig_opa.png',
@@ -122,27 +123,36 @@ const Art = (() => {
   // Sprite in einer Kulisse (SVG-Koordinaten 400x300): Bild oder SVG-Fallback
   function sprite(name, x, y, h, fallbackSvg, extraAttr = '') {
     const key = name === 'enten' ? 'enten' : 'ico_' + name;
-    if (IMG[key]) { const ratio = SPRITE_RATIO[name] || 1.3; const w = h * ratio; return `<image href="${IMG[key]}" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" ${extraAttr}/>`; }
+    if (IMG[key]) { const ratio = RATIO[key] || SPRITE_RATIO[name] || 1.3; const w = h * ratio; return `<image href="${IMG[key]}" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" ${extraAttr}/>`; }
     return fallbackSvg || '';
   }
-  const SPRITE_RATIO = { glocke: 1.08, gipfeli: 1.39, schraubenzieher: 2.02, koffer: 1.14, kaffee: 1.43, schraube: 0.89, katze: 0.91, posaune: 2.14, postauto: 2.4, zahnrad: 1.0, lupe: 1.04, mappe: 1.14, velo_a: 1.57, velo_b: 1.57, velo_c: 1.57, velo_d: 1.65, enten: 2.115 };
+  const SPRITE_RATIO = { silberglocke: 0.92, lupe_sprung: 0.91, eckengucker: 0.94, muenzen: 0.94, notizbuch: 1.06, lieferwagen: 1.79, auto_rost: 1.88, sonnenbrille: 2.35, feldstecher: 1.55, enten_schwimmen: 2.455, glocke: 1.08, gipfeli: 1.39, schraubenzieher: 2.02, koffer: 1.14, kaffee: 1.43, schraube: 0.89, katze: 0.91, posaune: 2.14, postauto: 2.4, zahnrad: 1.0, lupe: 1.04, mappe: 1.14, velo_a: 1.57, velo_b: 1.57, velo_c: 1.57, velo_d: 1.65, enten: 2.115 };
   // Figuren/Icons werden mit der App ausgeliefert: sofort als vorhanden registrieren (kein Rennen gegen
   // einen Lade-Timeout, das auf langsamen Netzen die alten SVG-Figuren zeigte). Vorladen mit grosszügigem Timeout.
   Object.assign(IMG, IMG_FILES);
+  // Neue Vollversions-Assets: erst nach erfolgreichem Laden registrieren (Datei fehlt evtl. noch)
+  const IMG_OPTIONAL = {
+    scene_werkstatt: './scene_werkstatt.jpg', scene_schlatter: './scene_schlatter.jpg', scene_schulflur: './scene_schulflur.jpg',
+    scene_markt: './scene_markt.jpg', scene_hinterhof: './scene_hinterhof.jpg', scene_kirchplatz: './scene_kirchplatz.jpg', scene_museum: './scene_museum.jpg', scene_anschlagbrett: './scene_anschlagbrett.jpg', scene_gemeinde: './scene_gemeinde.jpg',
+    enten_schwimmen: './enten_schwimmen.png', katze: './fig_katze.png', ico_katze: './fig_katze.png', ico_kuh: './ico_kuh.png',
+    imhof: './fig_imhof.png', zuercher: './fig_zuercher.png', andermatt: './fig_andermatt.png', mama: './fig_mama.png', vogel: './fig_vogel.png', luca: './fig_luca.png', frau1: './fig_frau1.png', frau2: './fig_frau2.png', oezcan: './fig_oezcan.png',
+    ...Object.fromEntries(['silberglocke','lieferwagen','auto_rost','muenzen','notizbuch','lupe_sprung','eckengucker','lauschtrichter','generalschluessel','nachtbrille','kasse','schachtel','spaten','kiste','taschenuhr','draht','zettel','pinsel','farbeimer','sonnenbrille','feldstecher','trillerpfeife'].map(n => ['ico_' + n, `./ico_${n}.png`])),
+  };
   function probeImages(timeout = 8000) {
-    const all = Object.entries(IMG_FILES).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = res; i.onerror = () => { delete IMG[k]; res(); }; i.src = src; }));
-    return Promise.race([Promise.all(all), new Promise(r => setTimeout(r, timeout))]);
+    const all = Object.entries(IMG_FILES).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = () => { RATIO[k] = i.naturalWidth / i.naturalHeight; res(); }; i.onerror = () => { delete IMG[k]; res(); }; i.src = src; }));
+    const opt = Object.entries(IMG_OPTIONAL).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = () => { IMG[k] = src; RATIO[k] = i.naturalWidth / i.naturalHeight; res(); }; i.onerror = res; i.src = src; }));
+    return Promise.race([Promise.all(all.concat(opt)), new Promise(r => setTimeout(r, timeout))]);
   }
   // Bei Ladefehler eines Figurenbilds: SVG-Fallback einsetzen
-  function imgFail(el) { const n = el.dataset.fig; delete IMG[n]; const svg = (chars[n] || chars.nino)(); el.insertAdjacentHTML('afterend', svg); el.remove(); }
+  function imgFail(el) { const n = el.dataset.fig; delete IMG[n]; const svg = (chars[n] || chars.generic)(); el.insertAdjacentHTML('afterend', svg); el.remove(); }
   function avatar(name) {
     if (name === 'erz') return `<img class="avatar avatar-img avatar-erz" src="${IMG.ico_lupe || ''}" alt="Erzähler" draggable="false">`;
     if (IMG[name]) return `<img class="avatar avatar-img" data-fig="${name}" src="${IMG[name]}" alt="${NAMES[name] || name}" draggable="false" onerror="Art.imgFail(this)">`;
-    return (chars[name] || chars.nino)();
+    return (chars[name] || chars.generic)();
   }
   function hasImg(k) { return !!IMG[k]; }
 
-  const NAMES = { erz: 'Erzähler', nino: 'Nino', mila: 'Mila', leyla: 'Leyla', brunner: 'Onkel Brunner', buehler: 'Herr Bühler', buehler_falsch: 'Der Mann', gerber: 'Frau Gerber', kummer: 'Herr Kummer', schlatter: 'Herr Schlatter', opa: 'Opa Ernst' };
+  const NAMES = { erz: 'Erzähler', nino: 'Nino', mila: 'Mila', leyla: 'Leyla', brunner: 'Onkel Brunner', buehler: 'Herr Bühler', buehler_falsch: 'Der Mann', gerber: 'Frau Gerber', kummer: 'Herr Kummer', schlatter: 'Herr Schlatter', opa: 'Opa Ernst', imhof: 'Herr Imhof', zuercher: 'Frau Zürcher', andermatt: 'Frau Andermatt', mama: 'Mama', vogel: 'Herr Vogel', luca: 'Luca', frau1: 'Frau', frau2: 'Frau', katze: 'Büsi' };
 
   // ---------- Kleine Objekte ----------
   const obj = {
@@ -261,5 +271,5 @@ const Art = (() => {
     </svg>`;
   }
 
-  return { avatar, chars, obj, scenes, karte, NAMES, probeImages, hasImg, IMG, icon, sprite, imgFail };
+  return { avatar, chars, obj, scenes, karte, NAMES, probeImages, hasImg, IMG, RATIO, icon, sprite, imgFail };
 })();

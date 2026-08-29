@@ -13,6 +13,7 @@ const Speech0815 = (() => {
     kummer:  { pitch: 0.65, rate: 0.8 },
     schlatter:{ pitch: 0.95, rate: 0.95 },
     opa:     { pitch: 0.85, rate: 0.85 },
+    imhof: { pitch: 0.95, rate: 0.9 }, zuercher: { pitch: 1.05, rate: 0.85 }, andermatt: { pitch: 1.0, rate: 0.82 }, mama: { pitch: 1.15, rate: 0.98 }, vogel: { pitch: 0.9, rate: 1.05 }, luca: { pitch: 1.1, rate: 0.95 },
   };
   function pickVoice() {
     if (!synth) return;

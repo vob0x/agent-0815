@@ -31,7 +31,7 @@
     $('#tb-sound').textContent = state.sound ? '🔊' : '🔇';
   }
   $('#tb-sound').onclick = () => { state.sound = !state.sound; applySound(); save(); $('#tb-sound').textContent = state.sound ? '🔊' : '🔇'; sfx('tap'); };
-  const CASE_ICONS = () => [Art.icon('glocke', Art.obj.gloeckchen(0, 0, 1.1), 'tb-svg'), Art.icon('gipfeli', Art.obj.gipfeli(0, 0, 1.2), 'tb-svg'), Art.hasImg('enten') ? `<img class="tb-svg icon-img" src="${Art.IMG.enten}" alt="">` : `<svg viewBox="-40 -40 80 80" class="tb-svg">${Art.obj.ente(0, 0, 1)}</svg>`, Art.icon('velo_a', Art.obj.velo(0, 4, 0.6), 'tb-svg'), Art.icon('zahnrad', Art.obj.zahnrad(0, 0, 0.9), 'tb-svg')];
+  const CASE_ICONS = () => ['silberglocke', 'eckengucker', 'lauschtrichter', 'generalschluessel', 'nachtbrille'].map((n, i) => Art.icon(n, [Scene0815.svgs.silberglocke(0, 0, 1.3), `<rect x="-22" y="-6" width="44" height="12" rx="4" fill="#C9A227" stroke="#8A6A10"/>`, `<path d="M-20 -14 L14 4 L4 14 Z" fill="#C9A227" stroke="#8A6A10"/>`, `<rect x="-24" y="-5" width="48" height="10" rx="2" fill="#C9A227" stroke="#8A6A10"/><circle cx="-12" r="2.5" fill="#fff"/><circle cx="6" r="2.5" fill="#fff"/>`, `<circle r="14" fill="#5A3A22"/><circle r="6" fill="#C77DFF"/>`][i], 'tb-svg'));
   function applyText() { document.body.classList.toggle('show-text', !!state.showText); }
   $('#tb-parent').onclick = () => parentGate();
   function applySound() { A.setMusic(state.sound && state.music !== false); A.setSfx(state.sound && state.sfx !== false); S.setEnabled(state.sound && state.voice !== false); }
@@ -127,15 +127,22 @@
   };
   function sceneHTML(name, opts) {
     opts = opts || {};
+    const o = { ...opts, bell: opts.bell !== undefined ? opts.bell : !!opts.gloeckchen, ducks: opts.ducks !== undefined ? opts.ducks : opts.enten };
+    if (Scene0815.DEFS[name] && Art.hasImg(Scene0815.DEFS[name].img)) return Scene0815.render(name, o);
     if (Art.hasImg('scene_' + name)) {
       const a = ANCHORS[name] || {};
       let over = '';
-      if (opts.gloeckchen && a.bell) over += Art.sprite('glocke', a.bell.x, a.bell.y, a.bell.h, Art.obj.gloeckchen(a.bell.x, a.bell.y, 1));
-      if (a.ducks && ((name === 'marktplatz' && opts.enten !== false) || (name === 'see' && opts.enten))) over += `<g class="enten">${Art.sprite('enten', a.ducks.x, a.ducks.y, a.ducks.h)}</g>`;
+      if (o.bell && a.bell) over += Art.sprite('glocke', a.bell.x, a.bell.y, a.bell.h, Art.obj.gloeckchen(a.bell.x, a.bell.y, 1));
+      if (a.ducks && o.ducks) over += `<g class="enten">${Art.sprite('enten', a.ducks.x, a.ducks.y, a.ducks.h)}</g>`;
       over += opts.extra || '';
       return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" class="scene"><image href="${Art.IMG['scene_' + name]}" width="400" height="300" preserveAspectRatio="xMidYMid slice"/>${over}</svg>`;
     }
-    return Art.scenes[name] ? Art.scenes[name](opts) : '';
+    return Art.scenes[name] ? Art.scenes[name](opts) : Scene0815.render(name, o);
+  }
+  const sceneSvg = () => stage.querySelector('.scene-wrap svg.scene');
+  async function runCues(cues, when) {
+    if (!cues) return; const list = Array.isArray(cues) ? cues : [cues];
+    for (const c of list) { if ((c.at || 'end') !== when) continue; await Scene0815.cue(sceneSvg(), c, sfx); }
   }
 
   function bubble(who, text, extraClass = '') {
@@ -164,19 +171,57 @@
         ${bubble(step.who, step.text)}
       </section>`;
       wireReplay(step.who, step.text); tapToSkip();
+      const t0 = stepToken;
       if (step.anim === 'brille') {
         const b = stage.querySelector('.portrait .brille'); if (b) b.classList.add('rutscht');
         const im = stage.querySelector('.portrait .avatar-img');
         if (im && Art.hasImg('nino_brille') && step.who === 'nino') { const orig = im.src; setTimeout(() => { im.src = Art.IMG.nino_brille; sfx('bonk'); }, 900); setTimeout(() => { im.src = orig; }, 2600); }
       }
+      const actor = sceneSvg() && sceneSvg().querySelector(`.actor[data-actor="${step.who}"]`); if (actor) actor.classList.add('talk');
       sfx(step.sfx);
-      await say(step.text, step.who);
-      autoNext(null, step.anim ? 2000 : 900);
+      await runCues(step.cue, 'start'); if (t0 !== stepToken) return;
+      await say(step.text, step.who); if (t0 !== stepToken) return;
+      if (actor) actor.classList.remove('talk');
+      await runCues(step.cue, 'end'); if (t0 !== stepToken) return;
+      autoNext(null, step.pause || (step.anim ? 2000 : 900));
+    },
+
+    // ---- Antippen (Klopfen, Schrauben festdrehen, Dielen prüfen) ----
+    async taps(step) {
+      if (step.scene) { cur.sceneName = step.scene.name; cur.sceneOpts = step.scene.opts || {}; }
+      let k = 0; const total = step.targets.length; const doneSet = new Set();
+      const targets = step.targets.map((t, i) => `<g class="target tap" data-i="${i}" transform="translate(${t.x} ${t.y})"><circle r="${t.r || 18}" fill="#fff" opacity=".001"/><circle class="tring" r="${(t.r || 18) - 2}" fill="none" stroke="#F7941D" stroke-width="3" stroke-dasharray="4 4"/>${t.svg || ''}</g>`).join('');
+      stage.innerHTML = `<section class="screen case">
+        <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive live" id="taps-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}<g id="tap-marks"></g>${targets}</svg>${progressDots(0, total)}</div>
+        ${bubble(step.intro.who, step.intro.text, 'compact')}
+      </section>`;
+      wireReplay(step.intro.who, step.intro.text);
+      const idleHint = () => idle(async () => { const t = stage.querySelector(`.target[data-i="${step.sequential ? k : [...Array(total).keys()].find(i => !doneSet.has(i))}"] .tring`); if (t) t.classList.add('hintpulse'); await say(step.hint || 'Tipp dort, wo es leuchtet.', 'leyla'); });
+      stage.querySelectorAll('.target').forEach(t => t.addEventListener('click', async () => {
+        const i = +t.dataset.i; clearIdle();
+        if (doneSet.has(i)) { sfx('tap'); return; }
+        if (step.sequential && i !== k) { sfx('wrong'); t.classList.add('shake'); setTimeout(() => t.classList.remove('shake'), 500); idleHint(); return; }
+        const tg = step.targets[i]; doneSet.add(i); k++;
+        sfx(tg.sfx || 'klack'); t.classList.add('done'); t.querySelector('.tring').setAttribute('stroke', '#6DA544'); t.querySelector('.tring').removeAttribute('stroke-dasharray');
+        if (tg.spin) { const s = t.querySelector('.spin'); if (s) s.classList.add('spun'); }
+        stage.querySelector('.dots').outerHTML = progressDots(k, total);
+        if (tg.say) await say(tg.say.text, tg.say.who);
+        if (k === total) {
+          sfx('correct');
+          stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
+          await runCues(step.cue, 'end');
+          await say(step.done.text, step.done.who); autoNext();
+        } else idleHint();
+      }));
+      await say(step.intro.text, step.intro.who);
+      idleHint();
     },
 
     // ---- Spuren finden ----
     async find(step) {
-      const scene = sceneHTML(step.scene, step.sceneOpts);
+      const sn = typeof step.scene === 'object' ? step.scene.name : step.scene; const so = typeof step.scene === 'object' ? step.scene.opts : step.sceneOpts;
+      if (sn) { cur.sceneName = sn; cur.sceneOpts = so || {}; }
+      const scene = sceneHTML(cur.sceneName, cur.sceneOpts);
       const hs = step.hotspots.map(h => h.svg || '').join('');
       const base = inner(scene).replace(/<\/svg>\s*$/, '') + hs;
       let found = 0; const foundSet = new Set();
@@ -213,23 +258,28 @@
         const p = svgPoint(svg, ev);
         const hit = step.hotspots.find((h, i) => !foundSet.has(i) && Math.hypot(h.x - p.x, h.y - p.y) <= h.r + 12);
         clearIdle();
-        if (!hit) { sfx('tap'); idleHint(); return; }
+        if (!hit) {
+          const miss = (step.misses || []).find(m => Math.hypot(m.x - p.x, m.y - p.y) <= m.r + 8);
+          if (miss) { sfx(miss.sfx || 'wrong'); if (miss.say) await say(miss.say, miss.who || 'leyla'); } else sfx('tap');
+          idleHint(); return;
+        }
         const i = step.hotspots.indexOf(hit); foundSet.add(i); found++;
         $('#marks').insertAdjacentHTML('beforeend', `<g class="mark"><circle cx="${hit.x}" cy="${hit.y}" r="${hit.r + 6}" fill="none" stroke="#6DA544" stroke-width="4"/>${Art.obj.stern(hit.x + hit.r, hit.y - hit.r, 0.9)}</g>`);
         stage.querySelector('.dots').outerHTML = progressDots(found, step.hotspots.length);
         sfx('found');
-        await say(hit.say, 'nino');
+        await say(hit.say, hit.who || 'nino');
         if (found === step.hotspots.length) {
           sfx('correct');
           stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact');
           wireReplay(step.done.who, step.done.text);
+          await runCues(step.cue, 'end');
           await say(step.done.text, step.done.who); autoNext();
         } else idleHint();
       });
       const idleHint = () => idle(async () => {
         const left = step.hotspots.find((h, i) => !foundSet.has(i)); if (!left) return;
         $('#marks').insertAdjacentHTML('beforeend', `<circle class="hintpulse" cx="${left.x}" cy="${left.y}" r="${left.r + 10}" fill="#F7941D" opacity=".4"/>`);
-        await say(step.lupe ? 'Schau mal dort, wo es leuchtet. Fahr mit der Lupe darüber.' : 'Schau mal dort, wo es leuchtet.', 'leyla');
+        await say(step.hint || (step.lupe ? 'Schau mal dort, wo es leuchtet. Fahr mit der Lupe darüber.' : 'Schau mal dort, wo es leuchtet.'), 'leyla');
       });
       await say(step.intro.text, step.intro.who);
       idleHint();
@@ -400,41 +450,45 @@
       idleHint();
     },
 
-    // ---- Unsichtbare Tinte freirubbeln ----
+    // ---- Reiben: Tinte / Graben / UV-Licht / Streichen (step.under = erscheint, step.over = Deckschicht) ----
     async reveal(step) {
-      const cells = new Set(); const NEED = 70; let done = false, lastRub = 0;
+      const cells = new Set(); const NEED = step.need || 70; let done = false, lastRub = 0; const W = step.w || 260, H = step.h || 260;
+      const over = step.over || `<rect x="4" y="4" width="${W - 8}" height="${H - 8}" rx="8" fill="#FFF8DC" stroke="#D9C8A9" stroke-width="3"/>`;
+      const under = step.under !== undefined ? step.under : step.content;
+      const cursor = step.cursor || `<circle r="10" fill="#F7941D" opacity=".7"/>`;
       stage.innerHTML = `<section class="screen case">
-        <div class="paper-wrap"><svg viewBox="0 0 260 260" class="paper" id="paper">
-          <defs><mask id="ink"><rect width="260" height="260" fill="#000"/><g id="ink-holes"></g></mask></defs>
-          <rect x="4" y="4" width="252" height="252" rx="8" fill="#FFF8DC" stroke="#D9C8A9" stroke-width="3"/>
-          <g mask="url(#ink)">${step.content}</g>
-          <g id="finger-hint" class="finger"><circle cx="60" cy="60" r="10" fill="#F7941D" opacity=".7"/></g>
+        <div class="paper-wrap ${step.mode || ''}"><svg viewBox="0 0 ${W} ${H}" class="paper" id="paper">
+          <defs><mask id="ink"><rect width="${W}" height="${H}" fill="#fff"/><g id="ink-holes" fill="#000"></g></mask>${step.defs || ''}</defs>
+          <g id="under">${under}</g>
+          <g id="over" mask="url(#ink)">${over}</g>
+          <g id="finger-hint" class="finger" transform="translate(60 60)">${cursor}</g>
+          <g id="cursor" style="display:none">${cursor}</g>
         </svg></div>
         <div class="bar"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
-        
       </section>`;
       wireReplay(step.intro.who, step.intro.text);
-      const svg = $('#paper'); const holes = $('#ink-holes'); let down = false;
+      const svg = $('#paper'); const holes = $('#ink-holes'); let down = false; const cur$ = $('#cursor');
       const rub = ev => {
         const p = svgPoint(svg, ev);
-        holes.insertAdjacentHTML('beforeend', `<circle cx="${p.x}" cy="${p.y}" r="22" fill="#fff"/>`);
+        holes.insertAdjacentHTML('beforeend', `<circle cx="${p.x}" cy="${p.y}" r="${step.brush || 22}"/>`);
+        cur$.style.display = ''; cur$.setAttribute('transform', `translate(${p.x} ${p.y})`);
         const cx = Math.floor(p.x / 26), cy = Math.floor(p.y / 26); cells.add(cx + ':' + cy);
-        const now = Date.now(); if (now - lastRub > 90) { sfx('rub'); lastRub = now; }
+        const now = Date.now(); if (now - lastRub > 120) { sfx(step.sfx || 'rub'); lastRub = now; }
         $('#finger-hint').style.display = 'none';
         const pct = Math.min(100, Math.round(cells.size / NEED * 100)); $('#bar-fill').style.width = pct + '%';
         if (!done && cells.size >= NEED) finish();
       };
       const finish = async () => {
-        done = true; clearIdle(); holes.insertAdjacentHTML('beforeend', `<rect width="260" height="260" fill="#fff"/>`); $('#bar-fill').style.width = '100%';
+        done = true; clearIdle(); holes.insertAdjacentHTML('beforeend', `<rect width="${W}" height="${H}"/>`); $('#bar-fill').style.width = '100%'; cur$.style.display = 'none';
         sfx('correct');
         stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
         await say(step.done.text, step.done.who); autoNext();
       };
       svg.addEventListener('pointerdown', ev => { down = true; svg.setPointerCapture(ev.pointerId); rub(ev); clearIdle(); });
       svg.addEventListener('pointermove', ev => { if (down) rub(ev); });
-      svg.addEventListener('pointerup', () => { down = false; if (!done) idleHint(); });
-      const idleHint = () => idle(async () => { $('#finger-hint').style.display = ''; await say('Reib mit dem Finger über das Papier. Überall.', 'leyla'); });
+      svg.addEventListener('pointerup', () => { down = false; cur$.style.display = 'none'; if (!done) idleHint(); });
+      const idleHint = () => idle(async () => { $('#finger-hint').style.display = ''; await say(step.hint || 'Reib mit dem Finger über das Papier. Überall.', 'leyla'); });
       await say(step.intro.text, step.intro.who);
       idleHint();
     },
@@ -468,29 +522,179 @@
       idleHint();
     },
 
-    // ---- Belohnung ----
+    // ---- Eckengucker: Rohr ziehen, im Spiegel erscheint das Versteckte; darin Dinge antippen ----
+    async periscope(step) {
+      if (step.scene) { cur.sceneName = step.scene.name; cur.sceneOpts = step.scene.opts || {}; }
+      const base = Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts));
+      const hidden = Scene0815.inner(sceneHTML(step.hidden.name, step.hidden.opts || {}));
+      let found = 0; const foundSet = new Set(); const R = step.r || 58;
+      stage.innerHTML = `<section class="screen case">
+        <div class="scene-wrap find"><svg viewBox="0 0 400 300" class="scene interactive live" id="find-svg">
+          <g id="base">${base}</g>
+          <defs><clipPath id="peri-clip"><circle id="peri-c" r="${R}" cx="-200" cy="-200"/></clipPath></defs>
+          <g id="peri" style="display:none"><g clip-path="url(#peri-clip)"><g id="peri-view">${hidden}</g><g id="marks"></g></g>
+            <circle id="peri-ring" r="${R}" fill="none" stroke="#B8860B" stroke-width="7"/><circle r="${R}" fill="none" stroke="#F2D26B" stroke-width="2" opacity=".8"/>
+            <rect id="peri-tube" x="${R - 4}" y="-9" width="70" height="18" rx="6" fill="#C9A227" stroke="#8A6A10" stroke-width="2"/></g>
+        </svg>${progressDots(0, step.hotspots.length)}</div>
+        ${bubble(step.intro.who, step.intro.text, 'compact')}
+      </section>`;
+      wireReplay(step.intro.who, step.intro.text);
+      const svg = $('#find-svg'), peri = $('#peri');
+      const move = ev => { const p = svgPoint(svg, ev); peri.style.display = ''; peri.setAttribute('transform', `translate(${p.x} ${p.y})`); $('#peri-c').setAttribute('cx', p.x); $('#peri-c').setAttribute('cy', p.y); $('#peri-view').setAttribute('transform', `translate(${-p.x} ${-p.y})`); $('#marks').setAttribute('transform', `translate(${-p.x} ${-p.y})`); };
+      let downPt = null;
+      svg.addEventListener('pointerdown', ev => { downPt = { x: ev.clientX, y: ev.clientY }; move(ev); svg.setPointerCapture(ev.pointerId); clearIdle(); });
+      svg.addEventListener('pointermove', ev => { if (downPt || ev.pointerType === 'mouse') move(ev); });
+      svg.addEventListener('pointerup', async ev => {
+        if (!downPt) return; const moved = Math.hypot(ev.clientX - downPt.x, ev.clientY - downPt.y); downPt = null;
+        if (moved > 25) return;
+        const p = svgPoint(svg, ev);
+        const hit = step.hotspots.find((h, i) => !foundSet.has(i) && Math.hypot(h.x - p.x, h.y - p.y) <= h.r + 10);
+        if (!hit) { sfx('tap'); idleHint(); return; }
+        const i = step.hotspots.indexOf(hit); foundSet.add(i); found++;
+        $('#marks').insertAdjacentHTML('beforeend', `<circle cx="${hit.x}" cy="${hit.y}" r="${hit.r + 6}" fill="none" stroke="#6DA544" stroke-width="4"/>`);
+        stage.querySelector('.dots').outerHTML = progressDots(found, step.hotspots.length);
+        sfx('found'); await say(hit.say, 'nino');
+        if (found === step.hotspots.length) {
+          sfx('correct'); stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
+          await say(step.done.text, step.done.who); autoNext();
+        } else idleHint();
+      });
+      const idleHint = () => idle(async () => { const left = step.hotspots.find((h, i) => !foundSet.has(i)); if (!left) return; $('#base').insertAdjacentHTML('beforeend', `<circle class="hintpulse" cx="${left.x}" cy="${left.y}" r="${left.r + 12}" fill="#F7941D" opacity=".35"/>`); await say(step.hint || 'Schieb das Rohr dorthin, wo es leuchtet. Dann tipp darauf.', 'leyla'); });
+      await say(step.intro.text, step.intro.who); idleHint();
+    },
+
+    // ---- Lauschtrichter: still halten, bis die Welt leise wird ----
+    async hold(step) {
+      if (step.scene) { cur.sceneName = step.scene.name; cur.sceneOpts = step.scene.opts || {}; }
+      const NEED = step.ms || 3000; let t0 = null, timer = null, noiseTimer = null, done = false, startPt = null;
+      stage.innerHTML = `<section class="screen case">
+        <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive live" id="hold-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}
+          <g id="noise-icons" class="noise-icons">${(step.noises || []).map((n, i) => `<g class="noise" style="--d:${i * 0.3}s" transform="translate(${n.x} ${n.y})"><circle r="16" fill="#fff" opacity=".85"/><text y="6" text-anchor="middle" font-size="18">${n.icon}</text></g>`).join('')}</g>
+          <g transform="translate(200 236)"><g class="hold-btn" id="hold-btn"><circle r="46" fill="#F7941D" stroke="#fff" stroke-width="5" class="hold-bg"/><circle r="46" fill="none" stroke="#6DA544" stroke-width="6" id="hold-ring" stroke-dasharray="289" stroke-dashoffset="289" transform="rotate(-90)"/>${Art.hasImg('ico_lauschtrichter') ? `<image href="${Art.IMG.ico_lauschtrichter}" x="-30" y="-30" width="60" height="60"/>` : `<text y="12" text-anchor="middle" font-size="36">👂</text>`}</g></g>
+        </svg></div>
+        ${bubble(step.intro.who, step.intro.text, 'compact')}
+      </section>`;
+      wireReplay(step.intro.who, step.intro.text);
+      const svg = $('#hold-svg'), ring = $('#hold-ring'), btn = $('#hold-btn');
+      const noises = step.noises || [];
+      const loud = () => { if (noises.length) { const n = noises[Math.floor(Math.random() * noises.length)]; if (n.sfx && A.sfx[n.sfx]) A.sfx[n.sfx](); } };
+      const startNoise = () => { stopNoise(); noiseTimer = setInterval(loud, 650); };
+      const stopNoise = () => { if (noiseTimer) clearInterval(noiseTimer); noiseTimer = null; };
+      startNoise();
+      const cancel = () => { t0 = null; if (timer) cancelAnimationFrame(timer); ring.setAttribute('stroke-dashoffset', 289); btn.classList.remove('holding'); svg.classList.remove('quiet'); if (!done) startNoise(); };
+      const tick = () => {
+        if (t0 === null) return; const el = performance.now() - t0; const f = Math.min(1, el / NEED);
+        ring.setAttribute('stroke-dashoffset', 289 * (1 - f));
+        if (f > 0.35) svg.classList.add('quiet');
+        if (f > 0.5 && noiseTimer) { stopNoise(); }
+        if (f >= 1) { finish(); return; }
+        timer = requestAnimationFrame(tick);
+      };
+      const finish = async () => {
+        done = true; stopNoise(); clearIdle(); btn.classList.add('done'); svg.classList.add('quiet');
+        await sleep(500); sfx('miau'); await sleep(600);
+        stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
+        sfx('correct'); await say(step.done.text, step.done.who); autoNext();
+      };
+      svg.addEventListener('pointerdown', ev => { if (done) return; startPt = { x: ev.clientX, y: ev.clientY }; t0 = performance.now(); btn.classList.add('holding'); svg.setPointerCapture(ev.pointerId); clearIdle(); timer = requestAnimationFrame(tick); });
+      svg.addEventListener('pointermove', ev => { if (t0 !== null && startPt && Math.hypot(ev.clientX - startPt.x, ev.clientY - startPt.y) > 18) { sfx('wrong'); cancel(); } });
+      svg.addEventListener('pointerup', () => { if (!done && t0 !== null) { cancel(); idleHint(); } });
+      const idleHint = () => idle(async () => { await say(step.hint || 'Leg den Finger auf den Trichter. Und halt ganz still.', 'leyla'); });
+      await say(step.intro.text, step.intro.who); idleHint();
+    },
+
+    // ---- Hörsuche: Trichter ziehen, das Geräusch wird lauter, je näher; am Ziel antippen ----
+    async listenfind(step) {
+      if (step.scene) { cur.sceneName = step.scene.name; cur.sceneOpts = step.scene.opts || {}; }
+      const T = step.target; let last = 0, done = false, downPt = null;
+      stage.innerHTML = `<section class="screen case">
+        <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive live" id="lf-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}
+          <g id="cone" style="display:none"><circle r="34" fill="#F7941D" opacity=".25"/><circle r="34" fill="none" stroke="#F7941D" stroke-width="3"/>${Art.hasImg('ico_lauschtrichter') ? `<image href="${Art.IMG.ico_lauschtrichter}" x="-22" y="-22" width="44" height="44"/>` : `<text y="9" text-anchor="middle" font-size="26">👂</text>`}<g id="vol"></g></g>
+        </svg><div class="vol-bar"><div id="vol-fill"></div></div></div>
+        ${bubble(step.intro.who, step.intro.text, 'compact')}
+      </section>`;
+      wireReplay(step.intro.who, step.intro.text);
+      const svg = $('#lf-svg'), cone = $('#cone'), fill = $('#vol-fill');
+      const vol = p => Math.max(0, 1 - Math.hypot(T.x - p.x, T.y - p.y) / (step.range || 180));
+      const move = ev => {
+        const p = svgPoint(svg, ev); cone.style.display = ''; cone.setAttribute('transform', `translate(${p.x} ${p.y})`);
+        const v = vol(p); fill.style.width = Math.round(v * 100) + '%'; fill.style.background = v > 0.7 ? '#6DA544' : '#F7941D';
+        const now = Date.now(); if (now - last > (1400 - v * 1000)) { last = now; if (A.sfx[step.sfx || 'miau']) A.sfx[step.sfx || 'miau'](0.15 + v * 0.85); }
+      };
+      svg.addEventListener('pointerdown', ev => { downPt = { x: ev.clientX, y: ev.clientY }; move(ev); svg.setPointerCapture(ev.pointerId); clearIdle(); });
+      svg.addEventListener('pointermove', ev => { if (downPt || ev.pointerType === 'mouse') move(ev); });
+      svg.addEventListener('pointerup', async ev => {
+        if (!downPt || done) return; const moved = Math.hypot(ev.clientX - downPt.x, ev.clientY - downPt.y); downPt = null;
+        const p = svgPoint(svg, ev);
+        if (Math.hypot(T.x - p.x, T.y - p.y) <= (T.r || 30)) {
+          done = true; clearIdle(); sfx('found');
+          svg.insertAdjacentHTML('beforeend', `<circle cx="${T.x}" cy="${T.y}" r="${(T.r || 30) + 6}" fill="none" stroke="#6DA544" stroke-width="4"/>${step.foundSvg || ''}`);
+          if (step.foundSprite) svg.insertAdjacentHTML('beforeend', Art.sprite(step.foundSprite.name, T.x, T.y, step.foundSprite.h, step.foundSprite.fallback || ''));
+          stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
+          await runCues(step.cue, 'end');
+          await say(step.done.text, step.done.who); autoNext();
+        } else if (moved <= 25) { sfx('tap'); idleHint(); }
+      });
+      const idleHint = () => idle(async () => { await say(step.hint || 'Zieh den Trichter über den Hof. Wo ist das Miauen am lautesten? Dort tipp hin.', 'leyla'); });
+      await say(step.intro.text, step.intro.who); idleHint();
+    },
+
+    // ---- Schablone über den Plan schieben, bis sie einrastet ----
+    async align(step) {
+      const T = step.target; let pos = { x: step.start.x, y: step.start.y }, grab = null, done = false;
+      stage.innerHTML = `<section class="screen case">
+        <div class="paper-wrap"><svg viewBox="0 0 300 300" class="paper" id="plan">
+          <rect x="4" y="4" width="292" height="292" rx="6" fill="#F3E9C8" stroke="#C9B47E" stroke-width="3"/>
+          <g class="plan-lines" stroke="#5A3A22" stroke-width="1.4" fill="none" opacity=".8">${step.plan}</g>
+          <g id="cross" style="display:none"><path d="M-7 -7 L7 7 M-7 7 L7 -7" stroke="#B5533C" stroke-width="3"/></g>
+          <g id="tmpl" class="template" transform="translate(${pos.x} ${pos.y})">${step.template}</g>
+        </svg></div>
+        ${bubble(step.intro.who, step.intro.text, 'compact')}
+      </section>`;
+      wireReplay(step.intro.who, step.intro.text);
+      const svg = $('#plan'), tmpl = $('#tmpl');
+      svg.addEventListener('pointerdown', ev => { if (done) return; const p = svgPoint(svg, ev); grab = { dx: pos.x - p.x, dy: pos.y - p.y }; svg.setPointerCapture(ev.pointerId); clearIdle(); tmpl.classList.add('drag'); });
+      svg.addEventListener('pointermove', ev => { if (!grab || done) return; const p = svgPoint(svg, ev); pos = { x: p.x + grab.dx, y: p.y + grab.dy }; tmpl.setAttribute('transform', `translate(${pos.x} ${pos.y})`); });
+      svg.addEventListener('pointerup', async () => {
+        if (!grab || done) return; grab = null; tmpl.classList.remove('drag');
+        if (Math.hypot(pos.x - T.x, pos.y - T.y) <= (step.snap || 14)) {
+          done = true; pos = { x: T.x, y: T.y }; tmpl.setAttribute('transform', `translate(${T.x} ${T.y})`); tmpl.classList.add('snapped'); sfx('click'); await sleep(400);
+          $('#cross').style.display = ''; $('#cross').setAttribute('transform', `translate(${step.cross.x} ${step.cross.y})`); $('#cross').classList.add('pop'); sfx('found');
+          stage.querySelector('.bubble-row').outerHTML = bubble(step.done.who, step.done.text, 'compact'); wireReplay(step.done.who, step.done.text);
+          await say(step.done.text, step.done.who); autoNext();
+        } else { sfx('tap'); idleHint(); }
+      });
+      const idleHint = () => idle(async () => { tmpl.classList.add('hintpulse'); await say(step.hint || 'Schieb den Messingstreifen über den Plan. Bis die Löcher auf die Linien passen.', 'leyla'); });
+      await say(step.intro.text, step.intro.who); idleHint();
+    },
+
+    // ---- Heft-Eintrag + Opas Zettel ----
     async reward(step, c) {
       clearIdle(); A.music('win');
       if (!state.done.includes(c.id)) state.done.push(c.id);
       state.unlocked = Math.max(state.unlocked, Math.min(CASES.length, c.id + 2)); save();
+      const note = step.note || 'Genügend';
+      const zIcon = step.zettel && step.zettel.icon ? Art.icon(step.zettel.icon, '', 'zettel-icon') : '';
       stage.innerHTML = `<section class="screen reward">
         <div class="confetti" id="confetti"></div>
-        <div class="stamp-wrap"><div class="stamp" id="stamp"><span class="stamp-check">✔</span><span class="lbl">ERLEDIGT</span></div><div class="portrait big">${Art.avatar('nino')}</div></div>
-        <div class="reward-card">
-          <div class="reward-title"><span class="lbl">Fall ${c.id + 1} gelöst!</span></div>
+        <div class="heft" id="heft">
+          <div class="heft-head"><div class="portrait small">${Art.avatar('nino')}</div><div class="heft-num">${c.id + 1}</div><div class="stamp" id="stamp"><span class="stamp-check">✔</span><span class="lbl">ERLEDIGT</span></div></div>
+          <div class="heft-lines"><span class="lbl">Fall Nummer ${c.id + 1}: ${esc(c.title)}. Erledigt.</span><span class="lbl">Note: <b>${esc(note)}</b></span></div>
           <div class="reward-stars">${'★'.repeat(3)}</div>
-          <div class="rule"><div class="rule-icon">📓</div><div class="rule-head lbl">Regel fürs Agentenhandbuch</div><p class="lbl">${esc(step.rule)}</p><button class="btn-replay" id="rule-replay" aria-label="Regel nochmal anhören">🔊</button></div>
-          <div class="note lbl">Ninos Note: <b>${esc(step.note)}</b> <span class="note-leyla">— Leyla: «Das war GUT, Nino.»</span></div>
         </div>
+        ${step.zettel ? `<div class="zettel" id="zettel"><div class="zettel-from"><div class="portrait small">${Art.avatar('opa')}</div>${zIcon}</div><p class="lbl">${esc(step.zettel.text)}</p><button class="btn-replay" id="zettel-replay" aria-label="Zettel nochmal anhören">🔊</button></div>` : ''}
       </section>`;
       const conf = $('#confetti'); for (let i = 0; i < 40; i++) { const s = document.createElement('i'); s.style.left = Math.random() * 100 + '%'; s.style.animationDelay = Math.random() * 1.5 + 's'; s.style.background = ['#F7941D', '#4FC3E8', '#6DA544', '#F25C7A', '#F7D046'][i % 5]; conf.appendChild(s); }
-      await sleep(300); sfx('stamp'); $('#stamp').classList.add('in'); await sleep(500); sfx('fanfare'); sfx('confetti');
       const go = () => step.final ? renderEnd() : renderMap(true);
       tapToSkip(go);
-      $('#rule-replay').onclick = () => { sfx('tap'); say(`Regel für mein Handbuch: ${step.rule}`, 'nino'); };
-      await say(`Fall Nummer ${c.id + 1}. Erledigt. Note: ${step.note}`, 'nino');
-      await say('Das war GUT, Nino.', 'leyla');
-      await say(`Regel für mein Handbuch: ${step.rule}`, 'nino');
+      const t0 = stepToken;
+      await sleep(300); sfx('stamp'); $('#stamp').classList.add('in'); await sleep(500); sfx('fanfare'); sfx('confetti');
+      await say(`Fall Nummer ${c.id + 1}: ${c.title}. Erledigt. Note: ${note}.`, 'nino'); if (t0 !== stepToken) return;
+      if (step.zettel) {
+        const z = $('#zettel'); z.classList.add('in'); sfx('whoosh'); await sleep(700);
+        $('#zettel-replay').onclick = () => { sfx('tap'); say(step.zettel.text, 'opa'); };
+        await say(step.zettel.text, 'opa'); if (t0 !== stepToken) return;
+      }
       autoNext(go, 1500);
     },
   };
