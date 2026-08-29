@@ -31,9 +31,30 @@ const Speech0815 = (() => {
   }
   if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; }
 
+  // ---------- Aufgenommene Stimmen (Gemini TTS) ----------
+  const VOICE_DIR = './'; const VOICE_MANIFEST = './voice_manifest.json';
+  let manifest = null, currentAudio = null;
+  fetch(VOICE_MANIFEST).then(r => r.ok ? r.json() : null).then(m => { manifest = m; }).catch(() => {});
+  function playFile(file) {
+    return new Promise(resolve => {
+      const a = new Audio(VOICE_DIR + file); currentAudio = a;
+      let done = false; const fin = () => { if (done) return; done = true; if (currentAudio === a) currentAudio = null; resolve(true); };
+      a.onended = fin; a.onerror = () => { if (!done) { done = true; resolve(false); } };
+      a.play().catch(() => { if (!done) { done = true; resolve(false); } });
+    });
+  }
   function clean(t) { return t.replace(/[«»*_]/g, '').replace(/—/g, ', ').replace(/\bSGD\b/g, 'S G D').replace(/0815/g, 'null acht fünfzehn'); }
 
-  function speak(text, who = 'erz') {
+  async function speak(text, who = 'erz') {
+    if (!enabled) return;
+    if (manifest && manifest[who + '|' + text]) {
+      stop();
+      const ok = await playFile(manifest[who + '|' + text]);
+      if (ok) return;
+    }
+    return speakTTS(text, who);
+  }
+  function speakTTS(text, who = 'erz') {
     return new Promise(resolve => {
       if (!synth || !enabled) { resolve(); return; }
       if (!ready) pickVoice();
@@ -53,10 +74,10 @@ const Speech0815 = (() => {
       setTimeout(() => { if (current === u) { try { synth.speak(u); } catch (e) { finish(); } } }, 60);
     });
   }
-  function stop() { if (synth) { try { synth.cancel(); } catch (e) {} } current = null; }
+  function stop() { if (synth) { try { synth.cancel(); } catch (e) {} } current = null; if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; } }
   function setEnabled(on) { enabled = on; if (!on) stop(); }
-  function available() { return !!synth; }
+  function available() { return !!synth || !!manifest; }
   // iOS: Stimmen laden erst nach einer Nutzergeste
   function warmup() { if (!synth) return; try { pickVoice(); const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); } catch (e) {} }
-  return { speak, stop, setEnabled, available, warmup, get enabled() { return enabled; }, get voiceName() { return voice ? voice.name + ' (' + voice.lang + ')' : '—'; } };
+  return { speak, stop, setEnabled, available, warmup, get enabled() { return enabled; }, get voiceName() { return manifest ? 'Aufnahmen (Gemini TTS)' + (synth ? ', Fallback ' + (voice ? voice.name : 'Gerät') : '') : voice ? voice.name + ' (' + voice.lang + ')' : '—'; } };
 })();
