@@ -348,3 +348,9 @@ body.speaking .bubble-row .portrait, body.speaking .map-foot .portrait { animati
 .cards.n2 { grid-template-columns: repeat(2, 1fr); max-width: 420px; margin: 8px auto 0; width: 100%; }
 .cards.n2 .card { min-height: 190px; }
 .cards.n2 .card-icon { width: 130px; height: 130px; }
+/* Grosse Bildschirme (Tablet hochkant, Laptop): Startbild grösser */
+@media (min-height: 900px) and (min-width: 600px) {
+  .logo { font-size: 3.4rem; } .logo span { font-size: 4.4rem; }
+  .hero { width: min(58vw, 340px); }
+  .btn-xl { font-size: 2rem; padding: 24px 56px; min-height: 88px; }
+}
