@@ -8,6 +8,7 @@
   let idleTimer = null, deferredInstall = null;
   let cur = { caseId: null, step: 0 };
   window.__cur = () => ({ c: cur.caseId, s: cur.step, m: !!stage.querySelector('.map-wrap') });
+  window.__jump = i => { cur.step = i; renderStep(); };
 
   function load() { try { return Object.assign({ done: [], unlocked: 1, sound: true }, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch (e) { return { done: [], unlocked: 1, sound: true }; } }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
@@ -21,7 +22,7 @@
   function sfx(name) { if (name && A.sfx[name]) A.sfx[name](); }
 
   // ---------- Idle-Hilfe ----------
-  function idle(fn, ms = 14000) { clearIdle(); idleTimer = setTimeout(fn, ms); }
+  function idle(fn, ms = 14000) { clearIdle(); const t = idleTimer = setTimeout(async () => { try { await fn(); } catch (e) {} if (idleTimer === t) idle(fn, 20000); }, ms); }
   function clearIdle() { if (idleTimer) clearTimeout(idleTimer); idleTimer = null; }
 
   // ---------- Top-Bar ----------
@@ -97,6 +98,12 @@
   // ---------- Fall-Ablauf ----------
   function startCase(id) {
     cur = { caseId: id, step: 0, sceneName: CASES[id].scene, sceneOpts: {} };
+    // Unterbrochenen Fall fortsetzen (Neuladen, App im Hintergrund): beim zuletzt erreichten Schritt weitermachen
+    const rs = state.cur;
+    if (rs && rs.caseId === id && rs.step > 0 && rs.step < CASES[id].steps.length - 1 && !state.done.includes(id)) {
+      cur.step = rs.step;
+      CASES[id].steps.slice(0, rs.step + 1).forEach(st => { if (st.scene) { cur.sceneName = st.scene.name; cur.sceneOpts = st.scene.opts || {}; } });
+    }
     A.music('case');
     renderStep();
   }
@@ -108,13 +115,16 @@
   function tapToSkip(fn) {
     const sec = stage.querySelector('.screen'); if (!sec) return;
     sec.classList.add('tappable');
-    sec.addEventListener('click', ev => { if (ev.target.closest('.btn-replay, button, .card, .spot')) return; sfx('tap'); S.stop(); (fn || next)(); });
+    if (sec._tap) sec.removeEventListener('click', sec._tap);
+    sec._tap = ev => { if (ev.target.closest('.btn-replay, button, .card, .spot')) return; sfx('tap'); S.stop(); (fn || next)(); };
+    sec.addEventListener('click', sec._tap);
   }
   function renderStep() {
     stepToken++; clearIdle(); S.stop();
     const c = CASES[cur.caseId];
     const step = c.steps[cur.step];
     if (!step) { renderMap(); return; }
+    state.cur = step.type === 'reward' ? null : { caseId: cur.caseId, step: cur.step }; save();
     topbar({ title: `Fall ${c.id + 1}: ${c.title}`, icon: `${CASE_ICONS()[c.id]}<b>${c.id + 1}</b>`, back: () => { S.stop(); renderMap(); } });
     const r = renderers[step.type];
     r ? r(step, c) : next();
@@ -166,10 +176,19 @@
     // ---- Dialog ----
     async dialog(step) {
       if (step.scene) { cur.sceneName = step.scene.name; cur.sceneOpts = step.scene.opts || {}; }
-      stage.innerHTML = `<section class="screen case">
-        <div class="scene-wrap">${sceneHTML(cur.sceneName, cur.sceneOpts)}</div>
-        ${bubble(step.who, step.text)}
-      </section>`;
+      // Gleiche Kulisse wie im letzten Dialog: nur die Sprechblase tauschen (kein Neuaufbau, kein Flackern, Animationen laufen weiter)
+      const key = cur.sceneName + '|' + JSON.stringify(cur.sceneOpts || {});
+      const prev = stage.querySelector('.screen.case.dialog');
+      if (prev && prev.dataset.scenekey === key) {
+        const row = prev.querySelector('.bubble-row'); const tmp = document.createElement('div'); tmp.innerHTML = bubble(step.who, step.text);
+        row.replaceWith(tmp.firstElementChild); prev.querySelectorAll('.actor.talk').forEach(a => a.classList.remove('talk'));
+      } else {
+        stage.innerHTML = `<section class="screen case dialog">
+          <div class="scene-wrap">${sceneHTML(cur.sceneName, cur.sceneOpts)}</div>
+          ${bubble(step.who, step.text)}
+        </section>`;
+        stage.firstElementChild.dataset.scenekey = key;
+      }
       wireReplay(step.who, step.text); tapToSkip();
       const t0 = stepToken;
       if (step.anim === 'brille') {
@@ -190,7 +209,7 @@
     async taps(step) {
       if (step.scene) { cur.sceneName = step.scene.name; cur.sceneOpts = step.scene.opts || {}; }
       let k = 0; const total = step.targets.length; const doneSet = new Set();
-      const targets = step.targets.map((t, i) => `<g class="target tap" data-i="${i}" transform="translate(${t.x} ${t.y})"><circle r="${t.r || 18}" fill="#fff" opacity=".001"/><circle class="tring" r="${(t.r || 18) - 2}" fill="none" stroke="#F7941D" stroke-width="3" stroke-dasharray="4 4"/>${t.svg || ''}</g>`).join('');
+      const targets = step.targets.map((t, i) => `<g class="target tap" data-i="${i}" transform="translate(${t.x} ${t.y})"><circle r="${Math.max(t.r || 18, 28)}" fill="#fff" opacity=".001"/><circle class="tring" r="${(t.r || 18) - 2}" fill="none" stroke="#F7941D" stroke-width="3" stroke-dasharray="4 4"/>${t.svg || ''}</g>`).join('');
       stage.innerHTML = `<section class="screen case">
         <div class="scene-wrap"><svg viewBox="${Scene0815.viewBox(cur.sceneName)}" class="scene interactive live" id="taps-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}<g id="tap-marks"></g>${targets}</svg>${progressDots(0, total)}</div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}
@@ -454,7 +473,8 @@
     async reveal(step) {
       const cells = new Set(); const NEED = step.need || 70; let done = false, lastRub = 0; const W = step.w || 260, H = step.h || 260;
       const over = step.over || `<rect x="4" y="4" width="${W - 8}" height="${H - 8}" rx="8" fill="#FFF8DC" stroke="#D9C8A9" stroke-width="3"/>`;
-      const under = step.under !== undefined ? step.under : step.content;
+      let under = step.under !== undefined ? step.under : step.content;
+      if (step.underImg && Art.IMG[step.underImg]) { const u = step.underImg, iw = step.imgW || 180, ih = iw / (Art.RATIO[u] || 1); under = (step.underBg || '') + `<image href="${Art.IMG[u]}" x="${(W - iw) / 2}" y="${(H - ih) / 2}" width="${iw}" height="${ih}"/>`; }
       const cursor = step.cursor || `<circle r="10" fill="#F7941D" opacity=".7"/>`;
       stage.innerHTML = `<section class="screen case">
         <div class="paper-wrap ${step.mode || ''}"><svg viewBox="0 0 ${W} ${H}" class="paper" id="paper">
@@ -569,7 +589,7 @@
       const NEED = step.ms || 3000; let t0 = null, timer = null, noiseTimer = null, done = false, startPt = null;
       stage.innerHTML = `<section class="screen case">
         <div class="scene-wrap"><svg viewBox="0 0 400 300" class="scene interactive live" id="hold-svg">${Scene0815.inner(sceneHTML(cur.sceneName, cur.sceneOpts))}
-          <g id="noise-icons" class="noise-icons">${(step.noises || []).map((n, i) => `<g class="noise" style="--d:${i * 0.3}s" transform="translate(${n.x} ${n.y})"><circle r="16" fill="#fff" opacity=".85"/><text y="6" text-anchor="middle" font-size="18">${n.icon}</text></g>`).join('')}</g>
+          <g id="noise-icons" class="noise-icons">${(step.noises || []).map((n, i) => `<g transform="translate(${n.x} ${n.y})"><g class="noise" style="--d:${i * 0.3}s"><circle r="16" fill="#fff" opacity=".85"/><text y="6" text-anchor="middle" font-size="18">${n.icon}</text></g></g>`).join('')}</g>
           <g transform="translate(200 236)"><g class="hold-btn" id="hold-btn"><circle r="46" fill="#F7941D" stroke="#fff" stroke-width="5" class="hold-bg"/><circle r="46" fill="none" stroke="#6DA544" stroke-width="6" id="hold-ring" stroke-dasharray="289" stroke-dashoffset="289" transform="rotate(-90)"/>${Art.hasImg('ico_lauschtrichter') ? `<image href="${Art.IMG.ico_lauschtrichter}" x="-30" y="-30" width="60" height="60"/>` : `<text y="12" text-anchor="middle" font-size="36">👂</text>`}</g></g>
         </svg></div>
         ${bubble(step.intro.who, step.intro.text, 'compact')}

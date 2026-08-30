@@ -133,10 +133,10 @@ const Art = (() => {
   // Neue Vollversions-Assets: erst nach erfolgreichem Laden registrieren (Datei fehlt evtl. noch)
   const IMG_OPTIONAL = {
     scene_werkstatt: './scene_werkstatt.jpg', scene_schlatter: './scene_schlatter.jpg', scene_schulflur: './scene_schulflur.jpg',
-    scene_markt: './scene_markt.jpg', scene_hinterhof: './scene_hinterhof.jpg', scene_kirchplatz: './scene_kirchplatz.jpg', scene_museum: './scene_museum.jpg', scene_anschlagbrett: './scene_anschlagbrett.jpg', scene_gemeinde: './scene_gemeinde.jpg',
+    scene_markt: './scene_markt.jpg', scene_hinterhof: './scene_hinterhof.jpg', scene_kirchplatz: './scene_kirchplatz.jpg', scene_museum: './scene_museum.jpg', scene_anschlagbrett: './scene_anschlagbrett.jpg', scene_gemeinde: './scene_gemeinde.jpg', scene_markt_hinter: './scene_markt_hinter.jpg', scene_altersheim: './scene_altersheim.jpg',
     enten_schwimmen: './enten_schwimmen.png', katze: './fig_katze.png', ico_katze: './fig_katze.png', ico_kuh: './ico_kuh.png',
-    imhof: './fig_imhof.png', zuercher: './fig_zuercher.png', andermatt: './fig_andermatt.png', mama: './fig_mama.png', vogel: './fig_vogel.png', luca: './fig_luca.png', frau1: './fig_frau1.png', frau2: './fig_frau2.png', oezcan: './fig_oezcan.png',
-    ...Object.fromEntries(['silberglocke','lieferwagen','auto_rost','muenzen','notizbuch','lupe_sprung','eckengucker','lauschtrichter','generalschluessel','nachtbrille','kasse','schachtel','spaten','kiste','taschenuhr','draht','zettel','pinsel','farbeimer','sonnenbrille','feldstecher','trillerpfeife'].map(n => ['ico_' + n, `./ico_${n}.png`])),
+    imhof: './fig_imhof.png', zuercher: './fig_zuercher.png', andermatt: './fig_andermatt.png', mama: './fig_mama.png', vogel: './fig_vogel.png', luca: './fig_luca.png', frau1: './fig_frau1.png', frau2: './fig_frau2.png',
+    ...Object.fromEntries(['silberglocke','lieferwagen','auto_rost','muenzen','notizbuch','lupe_sprung','eckengucker','lauschtrichter','generalschluessel','nachtbrille','kasse','schachtel','spaten','kiste','taschenuhr','draht','zettel','pinsel','sonnenbrille','feldstecher','trillerpfeife'].map(n => ['ico_' + n, `./ico_${n}.png`])),
   };
   function probeImages(timeout = 8000) {
     const all = Object.entries(IMG_FILES).map(([k, src]) => new Promise(res => { const i = new Image(); i.onload = () => { RATIO[k] = i.naturalWidth / i.naturalHeight; res(); }; i.onerror = () => { delete IMG[k]; res(); }; i.src = src; }));
@@ -261,6 +261,7 @@ const Art = (() => {
         const cls = 'spot ' + st;
         const fill = st === 'done' ? '#6DA544' : st === 'open' ? '#F7941D' : '#B9B9B9';
         return `<g class="${cls}" data-case="${s.id}" transform="translate(${s.x} ${s.y})" role="button" tabindex="0" aria-label="Fall ${s.id + 1}: ${s.label}">
+          <circle r="${R + 9}" fill="#fff" opacity=".001"/>
           <circle r="${R}" fill="${fill}" stroke="#fff" stroke-width="5"/>
           <g class="spot-icon" opacity="${st === 'locked' ? 0.5 : 1}" transform="scale(${R / 34})">${s.img && IMG['ico_' + s.img] ? `<image href="${IMG['ico_' + s.img]}" x="-22" y="-22" width="44" height="44"/>` : s.icon}</g>
           <circle cx="${R * 0.7}" cy="${-R * 0.7}" r="13" fill="#fff" stroke="${fill}" stroke-width="3"/><text x="${R * 0.7}" y="${-R * 0.7 + 5}" text-anchor="middle" font-size="15" font-weight="800" fill="${fill}" font-family="Fredoka, Nunito, sans-serif">${s.id + 1}</text>
