@@ -228,14 +228,18 @@
   }
 
   function rSchraub(r, t) {
-    const n = r.anzahl || 6;
-    const ziele = Array.from({ length: n }, (_, i) => { const a = i * (360 / n) * Math.PI / 180; return { x: Math.round(200 + 92 * Math.cos(a)), y: Math.round(150 + 74 * Math.sin(a)), r: 30 }; });
+    const n = (r.punkte && r.punkte.length) || r.anzahl || 6;
+    // Punkte am Bild ausgerichtet (r.punkte), sonst gleichmässig auf einer Ellipse
+    const c = r.kreis || { x: 200, y: 175, rx: 78, ry: 34 };
+    const ziele = r.punkte ? r.punkte.map(p => ({ x: p[0], y: p[1], r: p[2] || 24 }))
+      : Array.from({ length: n }, (_, i) => { const a = (i * (360 / n) - 90) * Math.PI / 180; return { x: Math.round(c.x + c.rx * Math.cos(a)), y: Math.round(c.y + c.ry * Math.sin(a)), r: 24 }; });
     const fl = zielFlaeche(r, ziele);
     fl.querySelectorAll('.ziel .ziel-ring').forEach(el => el.classList.add('offen'));
     // Schrauben sichtbar machen
     fl.querySelectorAll('.ziel').forEach(g => {
       const i = +g.dataset.i; const z = ziele[i];
-      g.insertAdjacentHTML('beforeend', `<g transform="translate(${z.x} ${z.y})"><circle r="9" fill="#B9BFC9" stroke="#6B7078" stroke-width="1.5"/><path d="M-5 0 H5 M0 -5 V5" stroke="#4a4a4a" stroke-width="1.8"/></g>`);
+      // Positionierung aussen, Drehung innen: CSS-Transform darf die SVG-Position nicht überschreiben
+      g.insertAdjacentHTML('beforeend', `<g transform="translate(${z.x} ${z.y})"><g class="schraube"><circle r="9" fill="#B9BFC9" stroke="#6B7078" stroke-width="1.5"/><path d="M-5 0 H5 M0 -5 V5" stroke="#4a4a4a" stroke-width="1.8"/></g></g>`);
     });
     const offen = new Set(ziele.map((_, i) => i));
     fl.querySelectorAll('.ziel').forEach(g => g.addEventListener('click', e => {
@@ -244,8 +248,7 @@
       offen.delete(i);
       A.sfx[r.sfx || 'screw']();
       g.querySelector('.ziel-ring').style.opacity = 0;
-      g.lastElementChild.style.transition = 'transform .5s'; g.lastElementChild.style.transform += ' rotate(540deg) ';
-      g.lastElementChild.setAttribute('transform', `translate(${ziele[i].x} ${ziele[i].y}) rotate(540)`);
+      const sch = g.querySelector('.schraube'); if (sch) sch.classList.add('fest');
       hilfeStop();
       if (offen.size === 0) danachWeiter(r, t); else hilfeStart(r, fl);
     }));
@@ -253,7 +256,7 @@
   }
 
   function rKlopf(r, t) {
-    const ziel = [{ x: 200, y: 165, r: 70 }];
+    const ziel = [{ x: r.tuer ? r.tuer.x : 200, y: r.tuer ? r.tuer.y : 165, r: r.tuer ? r.tuer.r : 70 }];
     const fl = zielFlaeche(r, ziel);
     let k = 0; const n = r.anzahl || 3; let dran = true;
     const g = fl.querySelector('.ziel');

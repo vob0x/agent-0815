@@ -75,3 +75,6 @@ body.pausiert .b-pause span { opacity: 1; transform: none; }
 .raetsel-frage { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 5; }
 .raetsel-frage .b-btn { width: 64px; height: 64px; font-size: 1.8rem; }
 .klopf-punkt { animation: zring 1.1s infinite; transform-box: fill-box; transform-origin: center; }
+
+.schraube { transform-box: fill-box; transform-origin: center; transition: transform .6s ease-out; }
+.schraube.fest { transform: rotate(540deg); }
