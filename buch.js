@@ -5,7 +5,7 @@
   const buhne = $('#buhne');
   const BUECHER = window.BUECHER = [BUCH_G01];
   const STORE = 'agent0815.buch.v1';
-  const load = () => { try { return Object.assign({ done: [], cur: null, sound: true }, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch (e) { return { done: [], cur: null, sound: true }; } };
+  const load = () => { try { return Object.assign({ done: [], cur: null, sound: true, musik: true }, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch (e) { return { done: [], cur: null, sound: true, musik: true }; } };
   const state = load();
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
 
@@ -59,12 +59,24 @@
       <div class="b-top">
         <button class="b-btn" id="b-zurueck" aria-label="Zur Kapitelwahl">📖</button>
         <div class="b-fill"></div>
+        <button class="b-btn ${state.musik ? '' : 'aus'}" id="b-musik" aria-label="Hintergrundmusik an oder aus" aria-pressed="${state.musik}">${state.musik ? '🎵' : '🔇'}</button>
         <button class="b-btn" id="b-nochmal" aria-label="Satz nochmal">🔊</button>
       </div>
       <div class="b-sprecher"><div class="portrait"></div><div class="welle"><i></i><i></i><i></i><i></i></div></div>
       <div class="b-pause"><span>▶</span></div>`;
     $('#b-zurueck').onclick = e => { e.stopPropagation(); token++; S.stop(); renderKapitel(); };
     $('#b-nochmal').onclick = e => { e.stopPropagation(); if (letzterSatz) { const t = token; S.stop(); setTimeout(() => { if (t === token) sag(letzterSatz, t); }, 80); } };
+    const mb = $('#b-musik');
+    if (mb) mb.onclick = e => {
+      e.stopPropagation();
+      state.musik = !state.musik; save();
+      A.setMusic(state.musik);
+      if (state.musik && G) A.music('case'); else A.stopMusic();
+      mb.textContent = state.musik ? '🎵' : '🔇';
+      mb.setAttribute('aria-pressed', state.musik);
+      mb.classList.toggle('aus', !state.musik);
+      A.sfx.tap();
+    };
   }
 
   // ---------- Start ----------
@@ -76,12 +88,12 @@
         <div class="b-cover">${Art.avatar('nino')}</div>
         <button class="btn btn-xl" id="b-los"><span class="ico">▶</span></button>
       </section>`;
-    $('#b-los').onclick = () => { try { A.ensure(); S.warmup(); } catch (e) {} A.sfx.klack(); renderKapitel(); };
+    $('#b-los').onclick = () => { try { A.ensure(); S.warmup(); A.setMusic(state.musik); } catch (e) {} A.sfx.klack(); renderKapitel(); };
   }
 
   // ---------- Kapitelwahl ----------
   function renderKapitel() {
-    token++; S.stop();
+    token++; S.stop(); if (!state.musik) A.stopMusic();
     const frei = state.done.length + 1;
     const karten = BUECHER.map((g, i) => {
       const zu = i + 1 > frei && !state.done.includes(g.id);
@@ -105,7 +117,7 @@
     G = BUECHER[idx]; gi = idx;
     probeBilder(G);
     si = (state.cur && state.cur.g === idx && !state.done.includes(G.id)) ? Math.min(state.cur.i, G.szenen.length - 1) : 0;
-    A.music('case');
+    if (state.musik) A.music('case'); else A.stopMusic();
     szene();
   }
   function weiter() { si++; szene(); }

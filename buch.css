@@ -78,3 +78,5 @@ body.pausiert .b-pause span { opacity: 1; transform: none; }
 
 .schraube { transform-box: fill-box; transform-origin: center; transition: transform .6s ease-out; }
 .schraube.fest { transform: rotate(540deg); }
+
+.b-btn.aus { background: rgba(255,255,255,.55); opacity: .8; }
