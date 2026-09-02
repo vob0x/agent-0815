@@ -116,8 +116,8 @@ const BUCH_G01 = {
       art: 'find', img: 'g1_r1_sockel', werkzeug: 'lupe_sprung',
       intro: { who: 'erz', text: 'Jetzt bist du dran. Schau durch die Zwinkerlupe. Tipp auf alles, was am Sockel nicht stimmt.' },
       ziele: [
-        { x: 155, y: 148, r: 30, say: { who: 'nino', text: 'Vier Löcher. Hier war die Glocke mit vier Schrauben festgeschraubt.' } },
-        { x: 216, y: 152, r: 26, say: { who: 'nino', text: 'Ein Kratzer. Und noch einer. Ganz fein, wie ein Haar.' } },
+        { x: 200, y: 148, r: 46, say: { who: 'nino', text: 'Vier Löcher. Hier war die Glocke mit vier Schrauben festgeschraubt.' } },
+        { x: 236, y: 118, r: 30, say: { who: 'nino', text: 'Ein Kratzer. Und noch einer. Ganz fein, wie ein Haar.' } },
       ],
       hilfe: [
         { who: 'erz', text: 'Schau ganz genau hin. Tipp auf die Stelle, die komisch aussieht.' },
@@ -230,7 +230,7 @@ const BUCH_G01 = {
 
     /* ---- RÄTSEL 4: Klopf an die Tür ---- */
     { raetsel: {
-      art: 'klopfen', img: 'g1_r4_tuer', anzahl: 3, sfx: 'knock', tuer: { x: 200, y: 165, r: 62 },
+      art: 'klopfen', img: 'g1_r4_tuer', anzahl: 3, sfx: 'knock', tuer: { x: 205, y: 185, r: 58 },
       intro: { who: 'erz', text: 'Jetzt du. Klopf an die Tür. Dreimal.' },
       zaehlen: [
         { who: 'erz', text: 'Einmal.' },
@@ -273,7 +273,7 @@ const BUCH_G01 = {
 
     /* ---- RÄTSEL 5: Schrauben festdrehen ---- */
     { raetsel: {
-      art: 'schrauben', img: 'g1_r5_glocke', anzahl: 6, sfx: 'screw', punkte: [[124, 178], [200, 168], [276, 178], [118, 226], [200, 232], [282, 226]],
+      art: 'schrauben', img: 'g1_r5_glocke', anzahl: 6, sfx: 'screw', punkte: [[108, 46], [200, 45], [292, 46], [90, 247], [200, 247], [315, 247]],
       intro: { who: 'erz', text: 'Hilf Herrn Kummer. Dreh jede Schraube fest. Tipp auf alle sechs.' },
       hilfe: [
         { who: 'erz', text: 'Tipp auf eine Schraube, die noch leuchtet.' },
