@@ -142,7 +142,7 @@
     if (Art.hasImg('scene_' + name)) {
       const a = ANCHORS[name] || {};
       let over = '';
-      if (o.bell && a.bell) over += Art.sprite('glocke', a.bell.x, a.bell.y, a.bell.h, Art.obj.gloeckchen(a.bell.x, a.bell.y, 1));
+      if (o.bell && a.bell) over += Art.sprite('silberglocke', a.bell.x, a.bell.y, a.bell.h, Art.obj.gloeckchen(a.bell.x, a.bell.y, 1));
       if (a.ducks && o.ducks) over += `<g class="enten">${Art.sprite('enten', a.ducks.x, a.ducks.y, a.ducks.h)}</g>`;
       over += opts.extra || '';
       return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" class="scene"><image href="${Art.IMG['scene_' + name]}" width="400" height="300" preserveAspectRatio="xMidYMid slice"/>${over}</svg>`;
